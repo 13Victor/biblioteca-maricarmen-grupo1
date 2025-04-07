@@ -18,11 +18,13 @@ from django.contrib import admin
 from django.urls import path
 from biblioteca import views
 from ninja import NinjaAPI
-
 from biblioteca.api import api
+
+# ImportCSV
 
 urlpatterns = [
     path('', views.index),
     path('admin/', admin.site.urls),
     path("api/", api.urls),
+    path("import_users/", views.import_users),
 ]
