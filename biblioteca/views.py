@@ -31,7 +31,6 @@ def import_users(request):
     try:
         data = json.loads(request.body)
         created_count = 0
-        updated_count = 0
         errors_count = 0
         error_details = []
 
@@ -40,11 +39,8 @@ def import_users(request):
                 email = user_data.get("email")
                 telefon = user_data.get("telefon")
 
-                # Validar que el email no está en uso por otro usuario
-                existing_email = Usuari.objects.filter(email=email).exists()
-                
-                # Error si el email ya existe
-                if existing_email:
+                # Validar que el email no está en uso
+                if Usuari.objects.filter(email=email).exists():
                     error_details.append({
                         "email": email,
                         "error": "El email ya existe en la base de datos"
@@ -100,7 +96,6 @@ def import_users(request):
         
         response_data = {
             "created": created_count,
-            "updated": updated_count,
             "errors": errors_count
         }
         
