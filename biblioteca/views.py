@@ -72,9 +72,15 @@ def import_users(request):
                     )
                 
                 # Crear nuevo usuario con contraseña aleatoria temporal
+                first_initial = user_data["nom"][0].lower() if user_data["nom"] else ""
+                last_name1 = user_data.get("cognom1", "").lower()
+                last_name2 = user_data.get("cognom2", "").lower()
+                username = f"{first_initial}{last_name1}{last_name2}".strip()
+
                 temp_password = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
+                
                 new_user = Usuari(
-                    username=email,  # Usar el email como username
+                    username=username,
                     email=email,
                     first_name=user_data["nom"],
                     last_name=f"{user_data.get('cognom1', '')} {user_data.get('cognom2', '')}".strip(),
