@@ -35,6 +35,41 @@ class AuthBearer(HttpBearer):
 def obtenir_token(request):
     return {"token": request.auth}
 
+
+# Endpoint per obtenir dades d'un usuari a partir del seu token
+@api.get("/usuari", auth=AuthBearer())
+@api.get("/usuari/", auth=AuthBearer())
+def obtenir_usuari(request):    
+    user = request.auth
+    if user:
+        #pasar 'user_permissions' en una lista de diccionarios
+        user_permissions = [{"id": perm.id, "name": perm.name} for perm in user.user_permissions.all()]
+        
+        imatge_url = user.imatge.url if user.imatge else None 
+        
+        #respuesta json
+        return {
+            "id": user.id,
+            "username": user.username,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "email": user.email,
+            "is_staff": user.is_staff,
+            "is_superuser": user.is_superuser,
+            "user_permissions": user_permissions,
+            "centre": user.centre,
+            "cicle": user.cicle,
+            "imatge": imatge_url,
+        }
+    
+    return {"error": "Usuari no trobat"}, 404
+
+
+
+
+
+
+
 class CatalegOut(Schema):
     id: int
     titol: str
