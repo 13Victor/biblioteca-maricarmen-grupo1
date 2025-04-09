@@ -107,10 +107,12 @@ class Cicle(models.Model):
     nom = models.CharField(max_length=200)
 
 class Usuari(AbstractUser):
+    telefon = models.CharField(max_length=9,blank=True,null=True)
     centre = models.ForeignKey(Centre,on_delete=models.SET_NULL,null=True,blank=True)
     cicle = models.ForeignKey(Cicle,on_delete=models.SET_NULL,null=True,blank=True)
     imatge = models.ImageField(upload_to='usuaris/',null=True,blank=True)
     auth_token = models.CharField(max_length=32,blank=True,null=True)
+
 
 class Reserva(models.Model):
     class Meta:
