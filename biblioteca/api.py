@@ -15,6 +15,11 @@ class SearchSuggestionOut(Schema):
     autor: Optional[str]
     tipus: str
 
+class ExemplarStateCount(Schema):
+    disponible: int = 0
+    exclos_prestec: int = 0
+    baixa: int = 0
+
 # Schema para los resultados de búsqueda
 class SearchResultOut(Schema):
     id: int
@@ -51,6 +56,7 @@ class SearchResultOut(Schema):
     pais: Optional[dict] = None
     llengua: Optional[dict] = None
     tags: Optional[List[dict]] = None
+    exemplar_counts: ExemplarStateCount = None
 
 # Endpoint para obtener sugerencias de búsqueda
 @api.get("/cataleg/search/suggestions/", response=List[SearchSuggestionOut])
@@ -117,6 +123,15 @@ def search_catalog(request, q: str = None):
             "mides": item.mides,
             "tipus": "indefinit"
         }
+        
+        exemplars = Exemplar.objects.filter(cataleg=item)
+        exemplar_counts = {
+            "disponible": exemplars.filter(exclos_prestec=False, baixa=False).count(),
+            "exclos_prestec": exemplars.filter(exclos_prestec=True, baixa=False).count(),
+            "baixa": exemplars.filter(baixa=True).count()
+        }
+        
+        result["exemplar_counts"] = exemplar_counts
         
         # Add tags (categories)
         result["tags"] = [{
