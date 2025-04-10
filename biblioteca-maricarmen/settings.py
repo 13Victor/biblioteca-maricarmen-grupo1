@@ -56,6 +56,10 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
+CORS_ALLOWED_ORIGINS = [
+    "https://biblioteca1.ieti.site",
+]
+
 ROOT_URLCONF = 'biblioteca-maricarmen.urls'
 
 TEMPLATES = [
