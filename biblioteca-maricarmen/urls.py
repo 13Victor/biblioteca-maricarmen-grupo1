@@ -18,11 +18,20 @@ from django.contrib import admin
 from django.urls import path
 from biblioteca import views
 from ninja import NinjaAPI
-
 from biblioteca.api import api
+
+# ImportCSV
 
 urlpatterns = [
     path('', views.index),
     path('admin/', admin.site.urls),
     path("api/", api.urls),
+    path("import_users/", views.import_users),
+    # Rutas de prueba para las páginas de error
+    path("404/", views.test_404),
+    path("403/", views.test_403),
 ]
+
+# Errores - Ya están configurados correctamente
+handler403 = 'biblioteca.views.error_403'
+handler404 = 'biblioteca.views.error_404'
