@@ -35,6 +35,12 @@ class LlibreAdmin(admin.ModelAdmin):
 		return mark_safe("<img src='{}' />".format(escape(obj.thumbnail_url)))
 	thumb.allow_tags = True
 
+	def get_form(self, request, obj=None, **kwargs):
+		form = super().get_form(request, obj, **kwargs)
+		if not obj and request.user.is_staff and not request.user.is_superuser and request.user.centre:
+			form.base_fields['lloc'].initial = request.user.centre.nom
+		return form
+
 class RevistaAdmin(admin.ModelAdmin):
     filter_horizontal = ('tags',)
     inlines = [ExemplarsInline,]
