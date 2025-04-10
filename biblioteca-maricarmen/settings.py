@@ -56,6 +56,10 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
+CORS_ALLOWED_ORIGINS = [
+    "https://biblioteca1.ieti.site",
+]
+
 ROOT_URLCONF = 'biblioteca-maricarmen.urls'
 
 TEMPLATES = [
@@ -80,10 +84,20 @@ WSGI_APPLICATION = 'biblioteca-maricarmen.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
-DATABASES = {
-    'default': env.db(),
-}
+# DATABASES = {
+#     'default': env.db(),
+# }
 
+DATABASES = {
+'default': {
+    'ENGINE': 'django.db.backends.mysql',
+    'NAME': 'biblioteca_db' ,
+    'USER': 'biblioteca_user',
+    'PASSWORD': '123',
+    'HOST': 'localhost', 
+    'PORT': '3306',
+    }
+}
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
