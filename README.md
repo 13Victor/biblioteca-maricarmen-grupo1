@@ -1,77 +1,154 @@
-# Biblioteca MariCarmen Brito
+# 📚 Biblioteca MariCarmen Brito
 
-Software per a gestió de biblioteques.
+![GitHub](https://img.shields.io/github/license/AWS2/biblioteca-maricarmen)
+![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)
+![Django](https://img.shields.io/badge/Django-latest-green.svg)
+![React](https://img.shields.io/badge/React-latest-61DAFB.svg)
 
-En record de Mari Carmen Brito de l'Institut Esteve Terradas i Illa de Cornellà de Llobregat.
+> Software para la gestión de bibliotecas. En memoria de Mari Carmen Brito del Instituto Esteve Terradas i Illa de Cornellà de Llobregat.
 
-## Instal·lació
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/08ffc9f0-28a2-4c2c-b59c-e832676762b0" alt="Esteve Terradas Logo" width="70%">
+</p>
 
-Instal·leu git, Python3 i l'entorn de treball virtualenv:
+## 🌟 Características
 
-    sudo apt update
-    sudo apt install python3-venv git
+- ✅ Gestión completa de catálogo de libros
+- ✅ Panel de administración para personal de biblioteca
+- ✅ API RESTful para integración con otros sistemas
+- ✅ Interfaz de usuario moderna con React
+- ✅ Funcionalidades de búsqueda avanzada
 
-Cloneu el repositori:
+## 📋 Requisitos previos
 
-    git clone https://github.com/AWS2/biblioteca-maricarmen
-    cd biblioteca-maricarmen
+- Python 3.8+
+- Git
+- MySQL o MariaDB
+- Node.js y npm (para el frontend React)
 
-Creem el virtualenv i carreguem les biblioteques:
+## 🚀 Instalación
 
-    python3 -m venv env
-    source env/bin/activate
+### Clonar el repositorio
 
-Carreguem les biblioteques del sistema (en particular per l'us de MySQL). Pel cas de Debian/Ubuntu:
+```bash
+git clone https://github.com/AWS2/biblioteca-maricarmen
+cd biblioteca-maricarmen
+```
 
-    sudo apt install libmysqlclient-dev python3-dev python3-mysqldb gcc pkgconf
+### Configurar el entorno virtual
 
-Carreguem les biblioteques de Python:
+```bash
+# Instalación de dependencias del sistema (Debian/Ubuntu)
+sudo apt update
+sudo apt install python3-venv git libmysqlclient-dev python3-dev python3-mysqldb gcc pkgconf
 
-    (env) $ pip install -r requirements.txt
+# Crear y activar entorno virtual
+python3 -m venv env
+source env/bin/activate
 
-Creem la base de dades de desenvolupament i afegim un superusuari:
+# Instalar dependencias de Python
+pip install -r requirements.txt
+```
 
-    (env) $ cp .env.example .env
-    (env) $ ./manage.py migrate
-    (env) $ ./manage.py createsuperuser
+### Configurar la base de datos
 
-Posem en marxa el servidor de desenvolupament:
+```bash
+# Crear archivo de configuración
+cp .env.example .env
 
-    (env) $ ./manage.py runserver
+# Editar .env con tu configuración de base de datos
+# nano .env
 
-Podeu accedir el servidor a http://localhost:8000/admin/
+# Aplicar migraciones
+./manage.py migrate
 
-Per carregar la base de dades de test:
+# Crear superusuario
+./manage.py createsuperuser
 
-    (env) $ ./manage.py loaddata testdb.json
+# Cargar datos de prueba (opcional)
+./manage.py loaddata testdb.json
+```
 
+### Iniciar el servidor de desarrollo
 
-## Frontend React
+```bash
+./manage.py runserver
+```
 
-Si accedim al frontend http://localhost:8000/ mostrarà un missatge de benvinguda i prou. Si volem activar el frontend realitzat en React caldrà carregar el submòdul a /react i desplegar-ho dins el projecte Django:
+Accede al panel de administración en: http://localhost:8000/admin/
 
-    $ git submodule init
-    $ git submodule update
-    $ ./deploy-react.sh
+## 🎨 Frontend React
 
-Ara ja es podrà accedir a la pàgina principal http://localhost:8000/ i visualitzar el frontend complert:
+Por defecto, acceder a http://localhost:8000/ mostrará solo un mensaje de bienvenida. Para activar la interfaz completa de React:
 
-    (env) $ ./manage.py runserver
+```bash
+# Inicializar y actualizar el submódulo de React
+git submodule init
+git submodule update
 
+# Desplegar React en el proyecto Django
+./deploy-react.sh
 
-## API
+# Iniciar el servidor
+./manage.py runserver
+```
 
-Per accedir l'API dels llibres cal aconseguir un token vàlid:
+Ahora podrás acceder a la interfaz completa en: http://localhost:8000/
 
-GET /api/token
-paràmetres:
-  * user
-  * password
+## 🔑 API REST
 
-Exemples:
-    curl "localhost:8000/api/token/" -i -X GET -u admin:admin123
+### Obtener token de autenticación
 
+```http
+GET /api/token/
+```
 
-GET /api/llibres
-paràmetres: no n'hi ha
+**Parámetros de autenticación básica:**
+- `user`: nombre de usuario
+- `password`: contraseña
 
+**Ejemplo con curl:**
+```bash
+curl "localhost:8000/api/token/" -i -X GET -u admin:admin123
+```
+
+### Listar libros
+
+```http
+GET /api/llibres/
+```
+
+**Cabeceras requeridas:**
+- `Authorization: Token {tu-token-aquí}`
+
+## 📝 Documentación
+
+La documentación completa está disponible en la [wiki del proyecto](https://github.com/AWS2/biblioteca-maricarmen/wiki).
+
+## 🧪 Tests
+
+Para ejecutar los tests:
+
+```bash
+./manage.py test
+```
+
+## 🤝 Contribuir
+
+Las contribuciones son bienvenidas. Por favor, revisa las [guías de contribución](CONTRIBUTING.md) antes de enviar un pull request.
+
+1. Fork del repositorio
+2. Crea una rama para tu funcionalidad (`git checkout -b feature/nueva-funcionalidad`)
+3. Commit de tus cambios (`git commit -m 'Añade nueva funcionalidad'`)
+4. Push a la rama (`git push origin feature/nueva-funcionalidad`)
+5. Abre un Pull Request
+
+## 📄 Licencia
+
+Este proyecto está licenciado bajo la Licencia MIT - ver el archivo [LICENSE](LICENSE) para más detalles.
+
+## 🙏 Agradecimientos
+
+- Mari Carmen Brito, por su dedicación a la educación
+- Todo el equipo del Institut Esteve Terradas i Illa
+- Comunidades de Django y React por sus excelentes recursos
