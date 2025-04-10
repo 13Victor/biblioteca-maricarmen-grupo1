@@ -35,13 +35,56 @@ class LlibreAdmin(admin.ModelAdmin):
 		return mark_safe("<img src='{}' />".format(escape(obj.thumbnail_url)))
 	thumb.allow_tags = True
 
+class RevistaAdmin(admin.ModelAdmin):
+    filter_horizontal = ('tags',)
+    inlines = [ExemplarsInline,]
+    search_fields = ('titol','autor','CDU','signatura','ISSN','editorial')
+    list_display = ('titol','autor','editorial','num_exemplars')
+    def num_exemplars(self,obj):
+        return obj.exemplar_set.count()
+
+class CDAdmin(admin.ModelAdmin):
+    filter_horizontal = ('tags',)
+    inlines = [ExemplarsInline,]
+    search_fields = ('titol','autor','CDU','signatura','discografica','estil')
+    list_display = ('titol','autor','discografica','estil','num_exemplars')
+    def num_exemplars(self,obj):
+        return obj.exemplar_set.count()
+
+class DVDAdmin(admin.ModelAdmin):
+    filter_horizontal = ('tags',)
+    inlines = [ExemplarsInline,]
+    search_fields = ('titol','autor','CDU','signatura','productora')
+    list_display = ('titol','autor','productora','num_exemplars')
+    def num_exemplars(self,obj):
+        return obj.exemplar_set.count()
+
+class BRAdmin(admin.ModelAdmin):
+    filter_horizontal = ('tags',)
+    inlines = [ExemplarsInline,]
+    search_fields = ('titol','autor','CDU','signatura','productora')
+    list_display = ('titol','autor','productora','num_exemplars')
+    def num_exemplars(self,obj):
+        return obj.exemplar_set.count()
+
+class DispositiuAdmin(admin.ModelAdmin):
+    filter_horizontal = ('tags',)
+    inlines = [ExemplarsInline,]
+    search_fields = ('titol','CDU','signatura','marca','model')
+    list_display = ('titol','marca','model','num_exemplars')
+    def num_exemplars(self,obj):
+        return obj.exemplar_set.count()
+
 admin.site.register(Usuari,UsuariAdmin)
 admin.site.register(Categoria,CategoriaAdmin)
 admin.site.register(Pais)
 admin.site.register(Llengua)
-admin.site.register(Llibre,LlibreAdmin)
-admin.site.register(Revista)
-admin.site.register(Dispositiu)
+admin.site.register(Llibre, LlibreAdmin)
+admin.site.register(Revista, RevistaAdmin)
+admin.site.register(CD, CDAdmin)
+admin.site.register(DVD, DVDAdmin)
+admin.site.register(BR, BRAdmin)
+admin.site.register(Dispositiu, DispositiuAdmin)
 admin.site.register(Imatge)
 
 class PrestecAdmin(admin.ModelAdmin):
