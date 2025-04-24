@@ -43,7 +43,7 @@ def import_users(request):
                 if Usuari.objects.filter(email=email).exists():
                     error_details.append({
                         "email": email,
-                        "error": "El email ya existe en la base de datos"
+                        "error": "El email ja existeix"
                     })
                     errors_count += 1
                     continue
@@ -52,7 +52,7 @@ def import_users(request):
                 if telefon and Usuari.objects.filter(telefon=telefon).exists():
                     error_details.append({
                         "email": email,
-                        "error": "El teléfono ya está registrado en la base de datos"
+                        "error": "El teléfon ja existeix"
                     })
                     errors_count += 1
                     continue
