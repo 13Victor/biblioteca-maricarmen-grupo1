@@ -42,7 +42,87 @@
     <script type="text/javascript">
     function introduccio_manual_isbn() {
         var isbn = prompt("Introdueix el ISBN");
-        carrega_info_isbn_de_open_library(isbn);
+        carrega_info_isbn_de_google_books(isbn);
+    }
+
+    function carrega_info_isbn_de_google_books(isbn) {
+        $.ajax({
+            method: "GET",
+            url: "https://www.googleapis.com/books/v1/volumes?q=isbn:" + isbn,
+            dataType: "json"
+        }).done(function (data) {
+            console.log("Resposta de Google Books:", data);
+
+            if (!data.items || data.items.length === 0) {
+                console.log("No s'ha trobat l'ISBN a Google Books");
+                alert("No s'ha trobat informació del llibre en OpenLibrary ni en Google Books");
+                return;
+            }
+
+            const llibre = data.items[0];
+            const volumeInfo = llibre.volumeInfo;
+
+            // Datos básicos del libro
+            $('#id_ISBN').val(isbn);
+
+            // URLs de información, vista previa y miniatura
+            if (volumeInfo.infoLink) $('#id_info_url').val(volumeInfo.infoLink);
+            if (volumeInfo.previewLink) $('#id_preview_url').val(volumeInfo.previewLink);
+            if (volumeInfo.imageLinks && volumeInfo.imageLinks.thumbnail) {
+                $('#id_thumbnail_url').val(volumeInfo.imageLinks.thumbnail);
+            }
+
+            // Título
+            if (volumeInfo.title) $('#id_titol').val(volumeInfo.title);
+
+            // Autor
+            if (volumeInfo.authors && volumeInfo.authors.length > 0) {
+                $('#id_autor').val(volumeInfo.authors[0]);
+            }
+
+            // Editorial
+            if (volumeInfo.publisher) $('#id_editorial').val(volumeInfo.publisher);
+
+            // Fecha de edición
+            if (volumeInfo.publishedDate) {
+                try {
+                    let fecha = volumeInfo.publishedDate;
+                    // Intentar varios formatos de fecha
+                    let fechaObj = new Date(fecha);
+
+                    if (!isNaN(fechaObj)) {
+                        // Si la fecha es válida, formatearla
+                        let dia = fechaObj.getDate();
+                        let mes = fechaObj.getMonth() + 1;
+                        let anyo = fechaObj.getFullYear();
+                        $('#id_data_edicio').val(dia + "/" + mes + "/" + anyo);
+                    } else {
+                        // Si solo tenemos el año
+                        let matchYear = fecha.match(/\d{4}/);
+                        if (matchYear) {
+                            $('#id_data_edicio').val("01/01/" + matchYear[0]);
+                        }
+                    }
+                } catch (e) {
+                    console.log("Error al procesar la fecha: " + e);
+                }
+            }
+
+            // Número de páginas
+            if (volumeInfo.pageCount) $('#id_pagines').val(volumeInfo.pageCount);
+
+            // Resumen del libro
+            if (volumeInfo.description) {
+                $('#id_resum').val(volumeInfo.description);
+            }
+
+            console.log("Información cargada correctamente desde Google Books");
+
+        }).fail(function (error) {
+            console.error("Error en la solicitud a Google Books:", error);
+            console.log("Intentant amb Open Library com a alternativa...");
+            carrega_info_isbn_de_open_library(isbn);
+        });
     }
 
     function carrega_info_isbn_de_open_library(isbn) {
@@ -140,90 +220,11 @@
 
 
         }).fail(function (error) {
-            console.error("Error en la solicitud a OpenLibrary:", error);
-            console.log("Intentant amb Google Books com a alternativa...");
-            carrega_info_isbn_de_google_books(isbn);
-        });
-    }
-
-    function carrega_info_isbn_de_google_books(isbn) {
-        $.ajax({
-            method: "GET",
-            url: "https://www.googleapis.com/books/v1/volumes?q=isbn:" + isbn,
-            dataType: "json"
-        }).done(function (data) {
-            console.log("Resposta de Google Books:", data);
-
-            if (!data.items || data.items.length === 0) {
-                console.log("No s'ha trobat l'ISBN a Google Books");
-                alert("No s'ha trobat informació del llibre en OpenLibrary ni en Google Books");
-                return;
-            }
-
-            const llibre = data.items[0];
-            const volumeInfo = llibre.volumeInfo;
-
-            // Datos básicos del libro
-            $('#id_ISBN').val(isbn);
-
-            // URLs de información, vista previa y miniatura
-            if (volumeInfo.infoLink) $('#id_info_url').val(volumeInfo.infoLink);
-            if (volumeInfo.previewLink) $('#id_preview_url').val(volumeInfo.previewLink);
-            if (volumeInfo.imageLinks && volumeInfo.imageLinks.thumbnail) {
-                $('#id_thumbnail_url').val(volumeInfo.imageLinks.thumbnail);
-            }
-
-            // Título
-            if (volumeInfo.title) $('#id_titol').val(volumeInfo.title);
-
-            // Autor
-            if (volumeInfo.authors && volumeInfo.authors.length > 0) {
-                $('#id_autor').val(volumeInfo.authors[0]);
-            }
-
-            // Editorial
-            if (volumeInfo.publisher) $('#id_editorial').val(volumeInfo.publisher);
-
-            // Fecha de edición
-            if (volumeInfo.publishedDate) {
-                try {
-                    let fecha = volumeInfo.publishedDate;
-                    // Intentar varios formatos de fecha
-                    let fechaObj = new Date(fecha);
-
-                    if (!isNaN(fechaObj)) {
-                        // Si la fecha es válida, formatearla
-                        let dia = fechaObj.getDate();
-                        let mes = fechaObj.getMonth() + 1;
-                        let anyo = fechaObj.getFullYear();
-                        $('#id_data_edicio').val(dia + "/" + mes + "/" + anyo);
-                    } else {
-                        // Si solo tenemos el año
-                        let matchYear = fecha.match(/\d{4}/);
-                        if (matchYear) {
-                            $('#id_data_edicio').val("01/01/" + matchYear[0]);
-                        }
-                    }
-                } catch (e) {
-                    console.log("Error al procesar la fecha: " + e);
-                }
-            }
-
-            // Número de páginas
-            if (volumeInfo.pageCount) $('#id_pagines').val(volumeInfo.pageCount);
-
-            // Resumen del libro
-            if (volumeInfo.description) {
-                $('#id_resum').val(volumeInfo.description);
-            }
-
-            console.log("Información cargada correctamente desde Google Books");
-
-        }).fail(function (error) {
-            console.error("Error en la solicitud a Google Books:", error);
+            console.error("Error en la solicitud a Open Library:", error);
             alert("No s'ha pogut trobar informació del llibre en cap dels serveis disponibles");
         });
     }
+
 
     let stream = null;
 
