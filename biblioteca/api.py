@@ -15,17 +15,48 @@ class SearchSuggestionOut(Schema):
     autor: Optional[str]
     tipus: str
 
+class ExemplarStateCount(Schema):
+    disponible: int = 0
+    exclos_prestec: int = 0
+    baixa: int = 0
+
 # Schema para los resultados de búsqueda
 class SearchResultOut(Schema):
     id: int
     titol: str
-    autor: Optional[str]
+    titol_original: Optional[str] = None
+    autor: Optional[str] = None
     tipus: str
+    # General fields from Cataleg
+    CDU: Optional[str] = None
+    signatura: Optional[str] = None
+    data_edicio: Optional[str] = None  # Keep dates as strings in API
+    resum: Optional[str] = None
+    anotacions: Optional[str] = None
+    mides: Optional[str] = None
+    # Llibre specific fields
     editorial: Optional[str] = None
     ISBN: Optional[str] = None
+    colleccio: Optional[str] = None
+    lloc: Optional[str] = None
+    pagines: Optional[int] = None
+    # Revista specific fields
     ISSN: Optional[str] = None
+    # CD/DVD/BR specific fields
+    discografica: Optional[str] = None
+    productora: Optional[str] = None
+    duracio: Optional[str] = None
+    # Dispositiu specific fields
+    marca: Optional[str] = None
+    model: Optional[str] = None
+    # Estado del ejemplar
     exclos_prestec: Optional[bool] = None
     baixa: Optional[bool] = None
+    # References to other models
+    pais: Optional[dict] = None
+    llengua: Optional[dict] = None
+    tags: Optional[List[dict]] = None
+    exemplar_counts: ExemplarStateCount = None
 
 # Endpoint para obtener sugerencias de búsqueda
 @api.get("/cataleg/search/suggestions/", response=List[SearchSuggestionOut])
@@ -78,39 +109,94 @@ def search_catalog(request, q: str = None):
     
     results = []
     for item in items:
-        # Base de datos común para todos los tipos
+        # Base data common to all types
         result = {
             "id": item.id,
             "titol": item.titol,
+            "titol_original": item.titol_original,
             "autor": item.autor,
+            "CDU": item.CDU,
+            "signatura": item.signatura,
+            "data_edicio": item.data_edicio.isoformat() if item.data_edicio else None,
+            "resum": item.resum,
+            "anotacions": item.anotacions,
+            "mides": item.mides,
             "tipus": "indefinit"
         }
         
-        # Determinar tipo específico y añadir atributos específicos
-        if hasattr(item, 'llibre'):
-            result["tipus"] = "llibre"
-            result["editorial"] = item.llibre.editorial
-            result["ISBN"] = item.llibre.ISBN
-        elif hasattr(item, 'revista'):
-            result["tipus"] = "revista"
-            result["editorial"] = item.revista.editorial
-            result["ISSN"] = item.revista.ISSN
-        elif hasattr(item, 'cd'):
-            result["tipus"] = "cd"
-            result["discografica"] = item.cd.discografica
-            result["estil"] = item.cd.estil
-        elif hasattr(item, 'dvd'):
-            result["tipus"] = "dvd"
-            result["productora"] = item.dvd.productora
-        elif hasattr(item, 'br'):
-            result["tipus"] = "br"
-            result["productora"] = item.br.productora
-        elif hasattr(item, 'dispositiu'):
-            result["tipus"] = "dispositiu"
-            result["marca"] = item.dispositiu.marca
-            result["model"] = item.dispositiu.model
+        exemplars = Exemplar.objects.filter(cataleg=item)
+        exemplar_counts = {
+            "disponible": exemplars.filter(exclos_prestec=False, baixa=False).count(),
+            "exclos_prestec": exemplars.filter(exclos_prestec=True, baixa=False).count(),
+            "baixa": exemplars.filter(baixa=True).count()
+        }
         
-        # Comprobar si hay ejemplares y su estado
+        result["exemplar_counts"] = exemplar_counts
+        
+        # Add tags (categories)
+        result["tags"] = [{
+            "id": tag.id,
+            "nom": tag.nom
+        } for tag in item.tags.all()]
+        
+        # Determine specific type and add specific attributes
+        if hasattr(item, 'llibre'):
+            llibre = item.llibre
+            result["tipus"] = "llibre"
+            result["editorial"] = llibre.editorial
+            result["ISBN"] = llibre.ISBN
+            result["colleccio"] = llibre.colleccio
+            result["lloc"] = llibre.lloc
+            result["pagines"] = llibre.pagines
+            
+            # Add país and llengua references
+            if llibre.pais:
+                result["pais"] = {"id": llibre.pais.id, "nom": llibre.pais.nom}
+            
+            if llibre.llengua:
+                result["llengua"] = {"id": llibre.llengua.id, "nom": llibre.llengua.nom}
+            
+        elif hasattr(item, 'revista'):
+            revista = item.revista
+            result["tipus"] = "revista"
+            result["editorial"] = revista.editorial
+            result["ISSN"] = revista.ISSN
+            result["lloc"] = revista.lloc
+            result["pagines"] = revista.pagines
+            
+            # Add país and llengua references
+            if revista.pais:
+                result["pais"] = {"id": revista.pais.id, "nom": revista.pais.nom}
+            
+            if revista.llengua:
+                result["llengua"] = {"id": revista.llengua.id, "nom": revista.llengua.nom}
+            
+        elif hasattr(item, 'cd'):
+            cd = item.cd
+            result["tipus"] = "cd"
+            result["discografica"] = cd.discografica
+            result["estil"] = cd.estil
+            result["duracio"] = str(cd.duracio) if cd.duracio else None
+            
+        elif hasattr(item, 'dvd'):
+            dvd = item.dvd
+            result["tipus"] = "dvd"
+            result["productora"] = dvd.productora
+            result["duracio"] = str(dvd.duracio) if dvd.duracio else None
+            
+        elif hasattr(item, 'br'):
+            br = item.br
+            result["tipus"] = "br"
+            result["productora"] = br.productora
+            result["duracio"] = str(br.duracio) if br.duracio else None
+            
+        elif hasattr(item, 'dispositiu'):
+            dispositiu = item.dispositiu
+            result["tipus"] = "dispositiu"
+            result["marca"] = dispositiu.marca
+            result["model"] = dispositiu.model
+        
+        # Check if there are exemplars and get their status
         exemplars = Exemplar.objects.filter(cataleg=item)
         if exemplars.exists():
             exemplar = exemplars.first()
@@ -119,7 +205,7 @@ def search_catalog(request, q: str = None):
         
         results.append(result)
     
-    return results  # Faltaba este return
+    return results
 # Autenticació bàsica
 class BasicAuth(HttpBasicAuth):
     def authenticate(self, request, username, password):
@@ -177,8 +263,42 @@ def obtenir_usuari(request):
     return {"error": "Usuari no trobat"}, 404
 
 
+#  EDITAR USUARI:
+from ninja import Schema, File
+from ninja.files import UploadedFile
 
+class EditUsuariIn(Schema):
+    id: int
+    email: Optional[str]
+    first_name: Optional[str]
+    last_name: Optional[str]
 
+@api.post("/editUsuari/")
+def edit_usuari(request, payload: EditUsuariIn, imatge: Optional[UploadedFile] = File(None)):
+    try:
+        user = Usuari.objects.get(id=payload.id)
+
+        if payload.email and payload.email != user.email:
+            user.email = payload.email
+        if payload.first_name and payload.first_name != user.first_name:
+            user.first_name = payload.first_name
+        if payload.last_name and payload.last_name != user.last_name:
+            user.last_name = payload.last_name
+        if imatge:
+            user.imatge.save(imatge.name, imatge)
+
+        user.save()
+        return {
+            "id": user.id,
+            "email": user.email,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "imatge": user.imatge.url if user.imatge else None
+        }
+    except Usuari.DoesNotExist:
+        return {"error": "Usuari no trobat"}, 404
+    except Exception as e:
+        return {"error": str(e)}, 400
 
 
 
