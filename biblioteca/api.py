@@ -255,8 +255,8 @@ def obtenir_usuari(request):
             "is_staff": user.is_staff,
             "is_superuser": user.is_superuser,
             "user_permissions": user_permissions,
-            "centre": user.centre,
-            "cicle": user.cicle,
+            "centre": user.centre.nom if user.centre else None,
+            "cicle": user.cicle.nom if user.cicle else None,
             "imatge": imatge_url,
         }
     
