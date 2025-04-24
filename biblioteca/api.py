@@ -263,8 +263,42 @@ def obtenir_usuari(request):
     return {"error": "Usuari no trobat"}, 404
 
 
+#  EDITAR USUARI:
+from ninja import Schema, File
+from ninja.files import UploadedFile
 
+class EditUsuariIn(Schema):
+    id: int
+    email: Optional[str]
+    first_name: Optional[str]
+    last_name: Optional[str]
 
+@api.post("/editUsuari/")
+def edit_usuari(request, payload: EditUsuariIn, imatge: Optional[UploadedFile] = File(None)):
+    try:
+        user = Usuari.objects.get(id=payload.id)
+
+        if payload.email and payload.email != user.email:
+            user.email = payload.email
+        if payload.first_name and payload.first_name != user.first_name:
+            user.first_name = payload.first_name
+        if payload.last_name and payload.last_name != user.last_name:
+            user.last_name = payload.last_name
+        if imatge:
+            user.imatge.save(imatge.name, imatge)
+
+        user.save()
+        return {
+            "id": user.id,
+            "email": user.email,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "imatge": user.imatge.url if user.imatge else None
+        }
+    except Usuari.DoesNotExist:
+        return {"error": "Usuari no trobat"}, 404
+    except Exception as e:
+        return {"error": str(e)}, 400
 
 
 

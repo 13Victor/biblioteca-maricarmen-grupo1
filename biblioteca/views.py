@@ -72,9 +72,15 @@ def import_users(request):
                     )
                 
                 # Crear nuevo usuario con contraseña aleatoria temporal
+                first_initial = user_data["nom"][0].lower() if user_data["nom"] else ""
+                last_name1 = user_data.get("cognom1", "").lower()
+                last_name2 = user_data.get("cognom2", "").lower()
+                username = f"{first_initial}{last_name1}{last_name2}".strip()
+
                 temp_password = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
+                
                 new_user = Usuari(
-                    username=email,  # Usar el email como username
+                    username=username,
                     email=email,
                     first_name=user_data["nom"],
                     last_name=f"{user_data.get('cognom1', '')} {user_data.get('cognom2', '')}".strip(),
@@ -107,3 +113,21 @@ def import_users(request):
 
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=400)
+
+# Funciones para manejar errores
+def error_404(request, exception):
+    """Maneja el error 404 (página no encontrada)"""
+    return render(request, 'errors/404.html', status=404)
+
+def error_403(request, exception=None):
+    """Maneja el error 403 (acceso prohibido)"""
+    return render(request, 'errors/403.html', status=403)
+
+# Funciones para probar las páginas de error
+def test_404(request):
+    """Función para probar la página de error 404"""
+    return render(request, 'errors/404.html', status=404)
+
+def test_403(request):
+    """Función para probar la página de error 403"""
+    return render(request, 'errors/403.html', status=403)
