@@ -114,20 +114,9 @@ def import_users(request):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=400)
 
-# Funciones para manejar errores
+# Errores
 def error_404(request, exception):
-    """Maneja el error 404 (página no encontrada)"""
-    return render(request, 'errors/404.html', status=404)
+    return render(request, 'errors/Error404.html', status=404)
 
 def error_403(request, exception=None):
-    """Maneja el error 403 (acceso prohibido)"""
-    return render(request, 'errors/403.html', status=403)
-
-# Funciones para probar las páginas de error
-def test_404(request):
-    """Función para probar la página de error 404"""
-    return render(request, 'errors/404.html', status=404)
-
-def test_403(request):
-    """Función para probar la página de error 403"""
-    return render(request, 'errors/403.html', status=403)
+    return render(request, 'errors/Error403.html', status=403)

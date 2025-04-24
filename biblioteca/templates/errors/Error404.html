@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Error 404 - Página no encontrada</title>
+    <link rel="stylesheet" href="../styles/ErrorPage.css">
+</head>
+
+<body>
+    <div class="error-container">
+        <div class="error-content">
+            <h1 class="error-title">Error 404</h1>
+            <div class="error-image">
+                <span>404</span>
+            </div>
+            <h2 class="error-subtitle">Página no encontrada</h2>
+            <p class="error-message">
+                Lo sentimos, la página que estás buscando no existe o no está disponible.
+            </p>
+            <button id="goBackButton" class="error-button">
+                Volver atrás
+            </button>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('goBackButton').addEventListener('click', function () {
+            window.location.href = 'https://biblioteca1.ieti.site';
+        });
+    </script>
+</body>
+
+</html>
