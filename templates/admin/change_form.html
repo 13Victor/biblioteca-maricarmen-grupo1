@@ -47,48 +47,108 @@
 
     function carrega_info_isbn_de_open_library(isbn) {
         $.ajax({
-          method: "GET",
-          url: "https://openlibrary.org/api/books?bibkeys=ISBN:"+isbn+"&jscmd=details&format=json",
-          dataType: "json",   // necessitem això pq ens retorni un objecte JSON
+            method: "GET",
+            url: "https://openlibrary.org/api/books?bibkeys=ISBN:" + isbn + "&jscmd=details&format=json",
+            dataType: "json",   // necessitem això pq ens retorni un objecte JSON
         }).done(function (msg) {
-            var llibre = msg["ISBN:"+isbn];
-            if( !llibre ) {
+            var llibre = msg["ISBN:" + isbn];
+            if (!llibre) {
                 console.log("No s'ha trobat l'ISBN");
                 alert("No s'ha trobat l'ISBN");
                 return;
             }
             console.log(msg);
-            if( !llibre.details ) {
+            if (!llibre.details) {
                 console.log("No s'ha trobat detalls del llibre");
                 alert("No s'ha trobat detalls del llibre");
                 return;
             }
 
+            // Datos básicos del libro
             $('#id_ISBN').val(isbn);
-            if(llibre.info_url) $('#id_info_url').val(llibre.info_url);
-            if(llibre.preview_url) $('#id_preview_url').val(llibre.preview_url);
-            if(llibre.thumbnail_url) $('#id_thumbnail_url').val(llibre.thumbnail_url);
+            if (llibre.info_url) $('#id_info_url').val(llibre.info_url);
+            if (llibre.preview_url) $('#id_preview_url').val(llibre.preview_url);
+            if (llibre.thumbnail_url) $('#id_thumbnail_url').val(llibre.thumbnail_url);
 
             var details = llibre.details;
-            if(details.title) $('#id_titol').val(details.title);
-            if(details.full_title) $('#id_titol').val(details.full_title);
-            if(details.translation_of) $('#id_titol_original').val(details.translation_of);
-            if(details.number_of_pages) $('#id_pagines').val(details.number_of_pages);
-            if(details.publishers) $('#id_editorial').val(details.publishers[0]);
-            if(details.authors) $('#id_autor').val(details.authors[0].name);
-            if(details.publish_date) {
-                let data = new Date(details.publish_date);
-                let data2 = data.getDate()+"/"+(data.getMonth()+1)+"/"+data.getFullYear();
-                $('#id_data_edicio').val(data2);
-            }
-            if(details.description) $('#id_resum').val(details.description.value);
-            /*if(details.languages) {
-                var lang_code = details.languages[0].key;
 
+            // Título y título original
+            if (details.title) $('#id_titol').val(details.title);
+            if (details.full_title) $('#id_titol').val(details.full_title);
+            if (details.translation_of) $('#id_titol_original').val(details.translation_of);
+
+            // Autor (incluyendo contribuciones si no hay autor principal)
+            if (details.authors && details.authors.length > 0) {
                 $('#id_autor').val(details.authors[0].name);
-            }*/
+            } else if (details.contributions && details.contributions.length > 0) {
+                // Intentar extraer el nombre del autor de contribuciones
+                let contributor = details.contributions[0];
+                if (contributor.includes('(')) {
+                    let authorName = contributor.split('(')[0].trim();
+                    $('#id_autor').val(authorName);
+                } else {
+                    $('#id_autor').val(contributor);
+                }
+            }
 
-        }).fail(function () {
+            // Editorial, colección y ubicación
+            if (details.publishers && details.publishers.length > 0) {
+                $('#id_editorial').val(details.publishers[0]);
+            }
+
+            // Fecha de edición
+            if (details.publish_date) {
+                try {
+                    let fecha = details.publish_date;
+                    // Intentar varios formatos de fecha
+                    let fechaObj = new Date(fecha);
+
+                    if (!isNaN(fechaObj)) {
+                        // Si la fecha es válida, formatearla
+                        let dia = fechaObj.getDate();
+                        let mes = fechaObj.getMonth() + 1;
+                        let anyo = fechaObj.getFullYear();
+                        $('#id_data_edicio').val(dia + "/" + mes + "/" + anyo);
+                    } else {
+                        // Si solo tenemos el año
+                        let matchYear = fecha.match(/\d{4}/);
+                        if (matchYear) {
+                            $('#id_data_edicio').val("01/01/" + matchYear[0]);
+                        }
+                    }
+                } catch (e) {
+                    console.log("Error al procesar la fecha: " + e);
+                }
+            }
+
+            // Número de páginas
+            if (details.number_of_pages) $('#id_pagines').val(details.number_of_pages);
+
+            // Resumen del libro
+            if (details.description) {
+                if (typeof details.description === 'object' && details.description.value) {
+                    $('#id_resum').val(details.description.value);
+                } else if (typeof details.description === 'string') {
+                    $('#id_resum').val(details.description);
+                }
+            }
+
+            // Primera frase como parte del resumen si no hay descripción
+            if (!details.description && details.first_sentence && details.first_sentence.value) {
+                $('#id_resum').val("Primera frase: " + details.first_sentence.value);
+            }
+
+            // Idioma (requeriría una función adicional para mapear códigos de idioma a IDs)
+            if (details.languages && details.languages.length > 0) {
+                let langCode = details.languages[0].key;
+                // Extraer el código de idioma de la ruta completa
+                let code = langCode.split('/').pop();
+                console.log("Código de idioma detectado: " + code);
+                // Aquí se podría implementar un mapeo de códigos de idioma a IDs en la base de datos
+            }
+
+        }).fail(function (error) {
+            console.error("Error en la solicitud a OpenLibrary:", error);
             alert("Error en carregar la informació de l'ISBN");
         });
     }
