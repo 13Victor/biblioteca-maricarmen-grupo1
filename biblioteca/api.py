@@ -240,18 +240,17 @@ def obtenir_token(request):
 def obtenir_usuari(request):    
     user = request.auth
     if user:
-        #pasar 'user_permissions' en una lista de diccionarios
         user_permissions = [{"id": perm.id, "name": perm.name} for perm in user.user_permissions.all()]
         
         imatge_url = user.imatge.url if user.imatge else None 
         
-        #respuesta json
         return {
             "id": user.id,
             "username": user.username,
             "first_name": user.first_name,
             "last_name": user.last_name,
             "email": user.email,
+            "telefon": user.telefon,  # Añadido el campo telefon
             "is_staff": user.is_staff,
             "is_superuser": user.is_superuser,
             "user_permissions": user_permissions,
@@ -272,6 +271,7 @@ class EditUsuariIn(Schema):
     email: Optional[str]
     first_name: Optional[str]
     last_name: Optional[str]
+    telefon: Optional[str]
 
 @api.post("/editUsuari/")
 def edit_usuari(request, payload: EditUsuariIn, imatge: Optional[UploadedFile] = File(None)):
@@ -284,6 +284,8 @@ def edit_usuari(request, payload: EditUsuariIn, imatge: Optional[UploadedFile] =
             user.first_name = payload.first_name
         if payload.last_name and payload.last_name != user.last_name:
             user.last_name = payload.last_name
+        if payload.telefon and payload.telefon != user.telefon:
+            user.telefon = payload.telefon
         if imatge:
             user.imatge.save(imatge.name, imatge)
 
@@ -293,6 +295,7 @@ def edit_usuari(request, payload: EditUsuariIn, imatge: Optional[UploadedFile] =
             "email": user.email,
             "first_name": user.first_name,
             "last_name": user.last_name,
+            "telefon": user.telefon,
             "imatge": user.imatge.url if user.imatge else None
         }
     except Usuari.DoesNotExist:
