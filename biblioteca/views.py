@@ -116,7 +116,7 @@ def import_users(request):
 
 # Errores
 def error_404(request, exception):
-    return render(request, 'errors/Error404.html', status=404)
+    return render(request, 'errors/404.html', status=404)
 
 def error_403(request, exception=None):
-    return render(request, 'errors/Error403.html', status=403)
+    return render(request, 'errors/403.html', status=403)
