@@ -8,7 +8,7 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.db.models import Q
 import json
-from .models import Usuari, Centre, Cicle
+from .models import Usuari, Centre, Grup
 import random
 import string
 # More imports ...
@@ -65,9 +65,9 @@ def import_users(request):
                     )
                 
                 # Búsqueda o creación de Ciclo
-                cicle = None
+                grup = None
                 if "grup" in user_data and user_data["grup"]:
-                    cicle, _ = Cicle.objects.get_or_create(
+                    grup, _ = Grup.objects.get_or_create(
                         nom=user_data["grup"]
                     )
                 
@@ -86,7 +86,7 @@ def import_users(request):
                     last_name=f"{user_data.get('cognom1', '')} {user_data.get('cognom2', '')}".strip(),
                     telefon=telefon,
                     centre=centre,
-                    cicle=cicle
+                    grup=grup
                 )
                 new_user.set_password(temp_password)
                 new_user.save()

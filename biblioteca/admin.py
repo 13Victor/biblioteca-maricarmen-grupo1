@@ -13,7 +13,7 @@ class CategoriaAdmin(admin.ModelAdmin):
 class UsuariAdmin(UserAdmin):
     fieldsets = UserAdmin.fieldsets + (
             ("Dades acadèmiques", {
-                'fields': ('centre','cicle','imatge'),
+                'fields': ('centre','grup','imatge'),
             }),
     )
 
@@ -124,7 +124,7 @@ class PrestecAdmin(admin.ModelAdmin):
     list_display = ('exemplar','usuari','data_prestec','data_retorn')
 
 admin.site.register(Centre)
-admin.site.register(Cicle)
+admin.site.register(Grup)
 admin.site.register(Reserva)
 admin.site.register(Prestec,PrestecAdmin)
 admin.site.register(Peticio)

@@ -4,7 +4,7 @@ from django.db.models.signals import post_migrate
 def create_bibliotecaris_group(sender, **kwargs):
     from django.contrib.auth.models import Group, Permission
     from django.contrib.contenttypes.models import ContentType
-    from .models import (Exemplar, Llibre, Categoria, Cicle, Dispositiu, 
+    from .models import (Exemplar, Llibre, Categoria, Grup, Dispositiu, 
                         Imatge, Llengua, Pais, Prestec, Reserva, Revista,
                         DVD, BR, CD, Cataleg, Log, Peticio)  # Añadido Peticio
 
@@ -17,7 +17,7 @@ def create_bibliotecaris_group(sender, **kwargs):
             Exemplar,    # Añadido explícitamente
             Llibre,      # Añadido explícitamente
             Categoria,
-            Cicle,
+            Grup,
             Dispositiu,
             Imatge,
             Llengua,
