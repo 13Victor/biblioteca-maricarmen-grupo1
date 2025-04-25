@@ -380,3 +380,24 @@ def get_exemplars(request):
         )
 
     return result
+
+# Schema for exemplars by catalog item
+class ExemplarItemOut(Schema):
+    id: int
+    registre: str
+    exclos_prestec: bool
+    baixa: bool
+
+# Endpoint to get exemplars by catalog item and center
+@api.get("/exemplars/by-item/{item_id}/", response=List[ExemplarItemOut], auth=AuthBearer())
+def get_exemplars_by_item(request, item_id: int):
+    user = request.auth
+    if not user or not user.centre:
+        return []
+    
+    exemplars = Exemplar.objects.filter(
+        cataleg_id=item_id,
+        centre=user.centre
+    )
+    
+    return exemplars
