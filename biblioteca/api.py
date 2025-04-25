@@ -401,3 +401,139 @@ def get_exemplars_by_item(request, item_id: int):
     )
     
     return exemplars
+
+# Schema for users list (for loan creation)
+class UserOut(Schema):
+    id: int
+    username: str
+    first_name: Optional[str]
+    last_name: Optional[str]
+    email: Optional[str]
+    centre: Optional[str]
+
+# Schema for loan creation
+class LoanCreateIn(Schema):
+    usuari_id: int
+    exemplar_id: int
+    anotacions: Optional[str] = None
+
+class LoanCreateOut(Schema):
+    id: int
+    usuari: UserOut
+    exemplar: ExemplarItemOut
+    data_prestec: str
+    mensaje: str = "Préstamo creado correctamente"
+
+# Get exemplar details by ID
+@api.get("/exemplars/{exemplar_id}/", response=ExemplarItemOut, auth=AuthBearer())
+def get_exemplar_by_id(request, exemplar_id: int):
+    user = request.auth
+    if not user:
+        return {"error": "No autorizado"}, 401
+    
+    try:
+        exemplar = Exemplar.objects.get(id=exemplar_id)
+        return exemplar
+    except Exemplar.DoesNotExist:
+        return {"error": "Ejemplar no encontrado"}, 404
+
+# Get available users for loans
+@api.get("/usuarios-disponibles/", response=List[UserOut], auth=AuthBearer())
+def get_available_users(request):
+    user = request.auth
+    if not user or not user.is_staff:
+        return {"error": "No autorizado"}, 401
+    
+    # Obtener usuarios del mismo centro que el bibliotecario o de todos si es superusuario
+    if user.is_superuser:
+        users = Usuari.objects.filter(is_active=True)
+    else:
+        users = Usuari.objects.filter(is_active=True, centre=user.centre)
+    
+    result = []
+    for u in users:
+        # No incluir al propio bibliotecario ni a otros usuarios staff
+        if u.id != user.id and not u.is_staff:
+            result.append({
+                "id": u.id,
+                "username": u.username,
+                "first_name": u.first_name,
+                "last_name": u.last_name,
+                "email": u.email,
+                "centre": u.centre.nom if u.centre else None
+            })
+    
+    return result
+
+# Create a new loan
+@api.post("/prestecs/crear/", response=LoanCreateOut, auth=AuthBearer())
+def create_loan(request, payload: LoanCreateIn):
+    bibliotecari = request.auth
+    if not bibliotecari or not bibliotecari.is_staff:
+        return {"error": "No autorizado"}, 401
+    
+    try:
+        # Obtener el usuario y ejemplar
+        usuario = Usuari.objects.get(id=payload.usuari_id)
+        exemplar = Exemplar.objects.get(id=payload.exemplar_id)
+        
+        # Verificar que el ejemplar está disponible
+        if exemplar.exclos_prestec:
+            return {"error": "El ejemplar está excluido de préstamo"}, 400
+        if exemplar.baixa:
+            return {"error": "El ejemplar está dado de baja"}, 400
+        
+        # Verificar que el ejemplar pertenece al centro del bibliotecario
+        if bibliotecari.centre != exemplar.centre and not bibliotecari.is_superuser:
+            return {"error": "El ejemplar no pertenece a tu centro"}, 400
+        
+        # Verificar que el usuario pertenece al centro del bibliotecario
+        if usuario.centre != bibliotecari.centre and not bibliotecari.is_superuser:
+            return {"error": "El usuario no pertenece a tu centro"}, 400
+        
+        # Crear el préstamo
+        prestec = Prestec.objects.create(
+            usuari=usuario,
+            exemplar=exemplar,
+            anotacions=payload.anotacions
+        )
+        
+        # Registrar en el log
+        Log.objects.create(
+            usuari=bibliotecari.username,
+            accio=f"Préstamo creado: ID {prestec.id} - Ejemplar {exemplar.registre} a {usuario.username}",
+            tipus="INFO"
+        )
+        
+        # Devolver resultado
+        return {
+            "id": prestec.id,
+            "usuari": {
+                "id": usuario.id,
+                "username": usuario.username,
+                "first_name": usuario.first_name,
+                "last_name": usuario.last_name,
+                "email": usuario.email,
+                "centre": usuario.centre.nom if usuario.centre else None
+            },
+            "exemplar": {
+                "id": exemplar.id,
+                "registre": exemplar.registre,
+                "exclos_prestec": exemplar.exclos_prestec,
+                "baixa": exemplar.baixa
+            },
+            "data_prestec": prestec.data_prestec.isoformat()
+        }
+        
+    except Usuari.DoesNotExist:
+        return {"error": "Usuario no encontrado"}, 404
+    except Exemplar.DoesNotExist:
+        return {"error": "Ejemplar no encontrado"}, 404
+    except Exception as e:
+        # Registrar error en el log
+        Log.objects.create(
+            usuari=bibliotecari.username,
+            accio=f"Error al crear préstamo: {str(e)}",
+            tipus="ERROR"
+        )
+        return {"error": f"Error al crear el préstamo: {str(e)}"}, 500
