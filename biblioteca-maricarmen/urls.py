@@ -29,3 +29,7 @@ urlpatterns = [
     path("api/", api.urls),
     path("import_users/", views.import_users),
 ]
+
+# Manejadores de errores
+handler404 = 'biblioteca.views.error_404'
+handler403 = 'biblioteca.views.error_403'
