@@ -302,6 +302,74 @@ def edit_usuari(request, payload: EditUsuariIn, imatge: Optional[UploadedFile] =
 
 
 
+# Endpoint per obtenir els préstecs d'un usuari, donat el usuari
+@api.get("/usuari/historial_prestecs", auth=AuthBearer())
+def get_historial_prestecs_usuari(request, usuari_id: int):
+    try:
+        # Verificar que el usuario solo puede ver su propio historial
+        if request.auth.id != usuari_id:
+            return {"error": "No autoritzat"}, 403
+
+        user = Usuari.objects.get(id=usuari_id)
+        prestecs = Prestec.objects.filter(usuari=user).select_related('exemplar__cataleg')
+
+        if not prestecs:
+            return []
+
+        historial = []
+        for prestec in prestecs:
+            try:
+                exemplar = prestec.exemplar
+                if not exemplar:
+                    continue
+                    
+                cataleg = exemplar.cataleg
+                if not cataleg:
+                    continue
+
+                # Determinar el tipus del catàleg
+                tipus = "Indefinit"
+                tipus_map = {
+                    "cd": "CD",
+                    "dvd": "DVD", 
+                    "br": "BluRay",
+                    "llibre": "Llibre",
+                    "revista": "Revista",
+                    "dispositiu": "Dispositiu"
+                }
+                
+                for t in tipus_map.keys():
+                    if hasattr(cataleg, t):
+                        tipus = tipus_map[t]
+                        break
+
+                prestec_dict = {
+                    "prestec_id": prestec.id,
+                    "data_prestec": prestec.data_prestec.isoformat() if prestec.data_prestec else None,
+                    "data_devolucio": prestec.data_retorn.isoformat() if prestec.data_retorn else None,  # Cambiar a data_retorn
+                    "exemplar": {
+                        "id": exemplar.id,
+                        "registre": exemplar.registre,
+                        "cataleg": {
+                            "id": cataleg.id,
+                            "titol": cataleg.titol,
+                            "autor": cataleg.autor,
+                            "tipus": tipus
+                        }
+                    }
+                }
+                historial.append(prestec_dict)
+            except Exception:
+                continue
+
+        return historial
+
+    except Usuari.DoesNotExist:
+        return {"error": "Usuari no trobat"}, 404
+    except Exception as e:
+        return {"error": str(e)}, 400
+
+
 class CatalegOut(Schema):
     id: int
     titol: str
