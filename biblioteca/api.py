@@ -451,3 +451,109 @@ def get_exemplars(request):
         )
 
     return result
+
+# Nuevos endpoints para autocompletar autores y editoriales
+@api.get("/autores/search/")
+def buscar_autores(request, q: str):
+    """Busca autores en la base de datos y en Google Books si es necesario"""
+    q = q.strip()
+    # Primero buscar en nuestra base de datos - ordenamos para priorizar los que empiezan por el texto
+    # Creamos dos queries: una para los que empiezan por el texto y otra para los que lo contienen
+    resultados_db_starts = Llibre.objects.filter(autor__istartswith=q).values('autor').distinct()
+    resultados_db_contains = Llibre.objects.filter(autor__icontains=q).exclude(autor__istartswith=q).values('autor').distinct()
+    
+    # Combinamos los resultados, primero los que empiezan por el texto
+    autores_starts = [item['autor'] for item in resultados_db_starts if item['autor']]
+    autores_contains = [item['autor'] for item in resultados_db_contains if item['autor']]
+    
+    # Usamos un diccionario para eliminar duplicados preservando el orden
+    autores_dict = {}
+    for autor in autores_starts + autores_contains:
+        # Usamos el nombre en minúsculas como clave para evitar duplicados por mayúsculas/minúsculas
+        autores_dict[autor.lower()] = autor
+    
+    autores = list(autores_dict.values())
+    
+    # Si no hay suficientes resultados (menos de 5), buscamos en Google Books
+    if len(autores) < 5:
+        try:
+            import requests
+            response = requests.get(f"https://www.googleapis.com/books/v1/volumes?q=inauthor:{q}&maxResults=10")
+            if response.status_code == 200:
+                data = response.json()
+                if 'items' in data:
+                    # Lista temporal para ordenar los resultados de Google Books
+                    google_autores_start = []
+                    google_autores_contain = []
+                    
+                    for item in data['items']:
+                        if 'volumeInfo' in item and 'authors' in item['volumeInfo']:
+                            for autor in item['volumeInfo']['authors']:
+                                if autor and autor.lower() not in autores_dict:
+                                    # Verificamos si el autor comienza con el texto buscado
+                                    if autor.lower().startswith(q.lower()):
+                                        google_autores_start.append(autor)
+                                    else:
+                                        google_autores_contain.append(autor)
+                                    # Agregamos al diccionario para evitar duplicados en siguientes iteraciones
+                                    autores_dict[autor.lower()] = autor
+                    
+                    # Añadimos los autores de Google Books a nuestra lista, primero los que empiezan por q
+                    autores.extend(google_autores_start)
+                    autores.extend(google_autores_contain)
+        except Exception as e:
+            print(f"Error al buscar en Google Books: {e}")
+    
+    return {"resultados": autores[:10]}  # Devolvemos máximo 10 resultados
+
+@api.get("/editoriales/search/")
+def buscar_editoriales(request, q: str):
+    """Busca editoriales en la base de datos y en Google Books si es necesario"""
+    q = q.strip()
+    # Primero buscar en nuestra base de datos - ordenamos para priorizar las que empiezan por el texto
+    resultados_db_starts = Llibre.objects.filter(editorial__istartswith=q).values('editorial').distinct()
+    resultados_db_contains = Llibre.objects.filter(editorial__icontains=q).exclude(editorial__istartswith=q).values('editorial').distinct()
+    
+    # Combinamos los resultados, primero los que empiezan por el texto
+    editoriales_starts = [item['editorial'] for item in resultados_db_starts if item['editorial']]
+    editoriales_contains = [item['editorial'] for item in resultados_db_contains if item['editorial']]
+    
+    # Usamos un diccionario para eliminar duplicados preservando el orden
+    editoriales_dict = {}
+    for editorial in editoriales_starts + editoriales_contains:
+        # Usamos el nombre en minúsculas como clave para evitar duplicados por mayúsculas/minúsculas
+        editoriales_dict[editorial.lower()] = editorial
+    
+    editoriales = list(editoriales_dict.values())
+    
+    # Si no hay suficientes resultados (menos de 5), buscamos en Google Books
+    if len(editoriales) < 5:
+        try:
+            import requests
+            response = requests.get(f"https://www.googleapis.com/books/v1/volumes?q=inpublisher:{q}&maxResults=10")
+            if response.status_code == 200:
+                data = response.json()
+                if 'items' in data:
+                    # Lista temporal para ordenar los resultados de Google Books
+                    google_editoriales_start = []
+                    google_editoriales_contain = []
+                    
+                    for item in data['items']:
+                        if 'volumeInfo' in item and 'publisher' in item['volumeInfo']:
+                            publisher = item['volumeInfo']['publisher']
+                            if publisher and publisher.lower() not in editoriales_dict:
+                                # Verificamos si la editorial comienza con el texto buscado
+                                if publisher.lower().startswith(q.lower()):
+                                    google_editoriales_start.append(publisher)
+                                else:
+                                    google_editoriales_contain.append(publisher)
+                                # Agregamos al diccionario para evitar duplicados en siguientes iteraciones
+                                editoriales_dict[publisher.lower()] = publisher
+                    
+                    # Añadimos las editoriales de Google Books a nuestra lista, manteniendo prioridad
+                    editoriales.extend(google_editoriales_start)
+                    editoriales.extend(google_editoriales_contain)
+        except Exception as e:
+            print(f"Error al buscar en Google Books: {e}")
+    
+    return {"resultados": editoriales[:10]}  # Devolvemos máximo 10 resultados
