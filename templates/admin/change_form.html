@@ -286,6 +286,54 @@
             stream = null;
         }
     }
+    
+    // Añadir función para configurar autocompletado
+    function configurarAutocompletado() {
+        // Autocompletado para el campo autor
+        $("#id_autor").autocomplete({
+            source: function(request, response) {
+                $.ajax({
+                    url: "/api/autores/search/",
+                    data: { q: request.term },
+                    dataType: "json",
+                    success: function(data) {
+                        response(data.resultados);
+                    },
+                    error: function() {
+                        response([]);
+                    }
+                });
+            },
+            minLength: 2,
+            delay: 300
+        });
+        
+        // Autocompletado para el campo editorial
+        $("#id_editorial").autocomplete({
+            source: function(request, response) {
+                $.ajax({
+                    url: "/api/editoriales/search/",
+                    data: { q: request.term },
+                    dataType: "json",
+                    success: function(data) {
+                        response(data.resultados);
+                    },
+                    error: function() {
+                        response([]);
+                    }
+                });
+            },
+            minLength: 2,
+            delay: 300
+        });
+    }
+    
+    // Inicializar autocomplete cuando el documento esté listo
+    $(document).ready(function() {
+        if (window.location.pathname.indexOf('/admin/biblioteca/llibre/') !== -1) {
+            configurarAutocompletado();
+        }
+    });
 
     function llegeix_codi_de_barres_amb_camera() {
         const videoElement = document.getElementById('video');
