@@ -11,10 +11,18 @@ class CategoriaAdmin(admin.ModelAdmin):
 
 
 class UsuariAdmin(UserAdmin):
-    fieldsets = UserAdmin.fieldsets + (
-            ("Dades acadèmiques", {
-                'fields': ('centre','grup','imatge'),
-            }),
+    # Obtener una copia de los fieldsets originales
+    fieldsets = list(UserAdmin.fieldsets)
+    # Modificar la tupla de 'Personal info' (que está en el índice 1)
+    fieldsets[1] = (
+        'Informació personal', 
+        {'fields': fieldsets[1][1]['fields'] + ('telefon',)}
+    )
+    # Añadir la sección de datos académicos
+    fieldsets = tuple(fieldsets) + (
+        ("Dades acadèmiques", {
+            'fields': ('centre','grup','imatge'),
+        }),
     )
 
 class ExemplarsInline(admin.TabularInline):
