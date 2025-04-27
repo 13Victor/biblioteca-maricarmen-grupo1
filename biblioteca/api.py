@@ -387,8 +387,10 @@ class ExemplarItemOut(Schema):
     registre: str
     exclos_prestec: bool
     baixa: bool
+    centre: Optional[dict] = None  # Añadir centro
+    cataleg: Optional[dict] = None  # Añadir catálogo para mostrar título y autor
 
-# Endpoint to get exemplars by catalog item and center
+# 2. Actualizar el endpoint get_exemplars_by_item para incluir esta información
 @api.get("/exemplars/by-item/{item_id}/", response=List[ExemplarItemOut], auth=AuthBearer())
 def get_exemplars_by_item(request, item_id: int):
     user = request.auth
@@ -398,9 +400,27 @@ def get_exemplars_by_item(request, item_id: int):
     exemplars = Exemplar.objects.filter(
         cataleg_id=item_id,
         centre=user.centre
-    )
+    ).select_related('centre', 'cataleg')  # Incluir relaciones
     
-    return exemplars
+    result = []
+    for exemplar in exemplars:
+        result.append({
+            "id": exemplar.id,
+            "registre": exemplar.registre,
+            "exclos_prestec": exemplar.exclos_prestec,
+            "baixa": exemplar.baixa,
+            "centre": {
+                "id": exemplar.centre.id,
+                "nom": exemplar.centre.nom
+            } if exemplar.centre else None,
+            "cataleg": {
+                "id": exemplar.cataleg.id,
+                "titol": exemplar.cataleg.titol,
+                "autor": exemplar.cataleg.autor
+            } if exemplar.cataleg else None
+        })
+    
+    return result
 
 # Schema for users list (for loan creation)
 class UserOut(Schema):
@@ -432,8 +452,22 @@ def get_exemplar_by_id(request, exemplar_id: int):
         return {"error": "No autorizado"}, 401
     
     try:
-        exemplar = Exemplar.objects.get(id=exemplar_id)
-        return exemplar
+        exemplar = Exemplar.objects.select_related('centre', 'cataleg').get(id=exemplar_id)
+        return {
+            "id": exemplar.id,
+            "registre": exemplar.registre,
+            "exclos_prestec": exemplar.exclos_prestec,
+            "baixa": exemplar.baixa,
+            "centre": {
+                "id": exemplar.centre.id,
+                "nom": exemplar.centre.nom
+            } if exemplar.centre else None,
+            "cataleg": {
+                "id": exemplar.cataleg.id,
+                "titol": exemplar.cataleg.titol,
+                "autor": exemplar.cataleg.autor
+            } if exemplar.cataleg else None
+        }
     except Exemplar.DoesNotExist:
         return {"error": "Ejemplar no encontrado"}, 404
 
