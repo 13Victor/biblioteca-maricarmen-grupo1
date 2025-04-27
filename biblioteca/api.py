@@ -444,11 +444,8 @@ def get_available_users(request):
     if not user or not user.is_staff:
         return {"error": "No autorizado"}, 401
     
-    # Obtener usuarios del mismo centro que el bibliotecario o de todos si es superusuario
-    if user.is_superuser:
-        users = Usuari.objects.filter(is_active=True)
-    else:
-        users = Usuari.objects.filter(is_active=True, centre=user.centre)
+    # Obtener todos los usuarios activos, sin filtrar por centro
+    users = Usuari.objects.filter(is_active=True)
     
     result = []
     for u in users:
@@ -484,12 +481,11 @@ def create_loan(request, payload: LoanCreateIn):
             return {"error": "El ejemplar está dado de baja"}, 400
         
         # Verificar que el ejemplar pertenece al centro del bibliotecario
+        # Mantenemos esta validación para que un bibliotecario solo pueda prestar ejemplares de su centro
         if bibliotecari.centre != exemplar.centre and not bibliotecari.is_superuser:
             return {"error": "El ejemplar no pertenece a tu centro"}, 400
         
-        # Verificar que el usuario pertenece al centro del bibliotecario
-        if usuario.centre != bibliotecari.centre and not bibliotecari.is_superuser:
-            return {"error": "El usuario no pertenece a tu centro"}, 400
+        # ELIMINADO: Ya no verificamos que el usuario pertenezca al centro del bibliotecario
         
         # Crear el préstamo
         prestec = Prestec.objects.create(
@@ -497,6 +493,10 @@ def create_loan(request, payload: LoanCreateIn):
             exemplar=exemplar,
             anotacions=payload.anotacions
         )
+        
+        # Marcar el ejemplar como excluido de préstamo
+        exemplar.exclos_prestec = True
+        exemplar.save()
         
         # Registrar en el log
         Log.objects.create(
@@ -519,7 +519,7 @@ def create_loan(request, payload: LoanCreateIn):
             "exemplar": {
                 "id": exemplar.id,
                 "registre": exemplar.registre,
-                "exclos_prestec": exemplar.exclos_prestec,
+                "exclos_prestec": exemplar.exclos_prestec,  # Ahora será True
                 "baixa": exemplar.baixa
             },
             "data_prestec": prestec.data_prestec.isoformat()
