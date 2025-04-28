@@ -462,16 +462,15 @@ class ExemplarItemOut(Schema):
     cataleg: Optional[dict] = None  # Añadir catálogo para mostrar título y autor
 
 # 2. Actualizar el endpoint get_exemplars_by_item para incluir esta información
-@api.get("/exemplars/by-item/{item_id}/", response=List[ExemplarItemOut], auth=AuthBearer())
-def get_exemplars_by_item(request, item_id: int):
-    user = request.auth
-    if not user or not user.centre:
-        return []
-    
+@api.get("/exemplars/by-item/{item_id}", response=List[ExemplarItemOut])
+def get_exemplars_by_item_public(request, item_id: int):
+    """
+    Endpoint público para obtener ejemplares por ítem para mostrar disponibilidad por centro
+    No requiere autenticación
+    """
     exemplars = Exemplar.objects.filter(
-        cataleg_id=item_id,
-        centre=user.centre
-    ).select_related('centre', 'cataleg')  # Incluir relaciones
+        cataleg_id=item_id
+    ).select_related('centre', 'cataleg')
     
     result = []
     for exemplar in exemplars:
