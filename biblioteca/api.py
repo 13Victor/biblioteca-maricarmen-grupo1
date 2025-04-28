@@ -250,11 +250,14 @@ def obtenir_usuari(request):
             "first_name": user.first_name,
             "last_name": user.last_name,
             "email": user.email,
-            "telefon": user.telefon,  # Añadido el campo telefon
+            "telefon": user.telefon,
             "is_staff": user.is_staff,
             "is_superuser": user.is_superuser,
             "user_permissions": user_permissions,
-            "centre": user.centre.nom if user.centre else None,
+            "centre": {
+                "id": user.centre.id,
+                "nom": user.centre.nom
+            } if user.centre else None,
             "grup": user.grup.nom if user.grup else None,
             "imatge": imatge_url,
         }
@@ -584,12 +587,16 @@ def create_loan(request, payload: LoanCreateIn):
         if exemplar.baixa:
             return {"error": "El ejemplar está dado de baja"}, 400
         
-        # Verificar que el ejemplar pertenece al centro del bibliotecario
-        # Mantenemos esta validación para que un bibliotecario solo pueda prestar ejemplares de su centro
-        if bibliotecari.centre != exemplar.centre and not bibliotecari.is_superuser:
-            return {"error": "El ejemplar no pertenece a tu centro"}, 400
-        
-        # ELIMINADO: Ya no verificamos que el usuario pertenezca al centro del bibliotecario
+        # Reforzar validación de centro: un bibliotecario solo puede prestar ejemplares de su centro
+        if not bibliotecari.centre:
+            return {"error": "El bibliotecario no tiene un centro asignado"}, 400
+            
+        if not exemplar.centre:
+            return {"error": "El ejemplar no tiene un centro asignado"}, 400
+            
+        # Comparar los IDs de los centros, no las instancias
+        if bibliotecari.centre.id != exemplar.centre.id and not bibliotecari.is_superuser:
+            return {"error": f"El ejemplar pertenece al centre '{exemplar.centre.nom}' y tú perteneces a '{bibliotecari.centre.nom}'"}, 400
         
         # Crear el préstamo
         prestec = Prestec.objects.create(
@@ -623,8 +630,12 @@ def create_loan(request, payload: LoanCreateIn):
             "exemplar": {
                 "id": exemplar.id,
                 "registre": exemplar.registre,
-                "exclos_prestec": exemplar.exclos_prestec,  # Ahora será True
-                "baixa": exemplar.baixa
+                "exclos_prestec": exemplar.exclos_prestec,
+                "baixa": exemplar.baixa,
+                "centre": {
+                    "id": exemplar.centre.id,
+                    "nom": exemplar.centre.nom
+                } if exemplar.centre else None
             },
             "data_prestec": prestec.data_prestec.isoformat()
         }
