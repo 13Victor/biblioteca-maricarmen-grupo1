@@ -28,7 +28,7 @@ SECRET_KEY = env("SECRET_KEY")
 DEBUG = env("DEBUG")
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["*",])
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-#CSRF_TRUSTED_ORIGINS = ["https://biblio.ieti.site"]
+CSRF_TRUSTED_ORIGINS = ["http://localhost:8000"]
 
 
 # Application definition
@@ -57,6 +57,8 @@ MIDDLEWARE = [
 ]
 
 CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://localhost:8000",
     "https://biblioteca1.ieti.site",
 ]
 
