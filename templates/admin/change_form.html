@@ -51,10 +51,7 @@
             url: "https://www.googleapis.com/books/v1/volumes?q=isbn:" + isbn,
             dataType: "json"
         }).done(function (data) {
-            console.log("Resposta de Google Books:", data);
-
             if (!data.items || data.items.length === 0) {
-                console.log("No s'ha trobat l'ISBN a Google Books");
                 alert("No s'ha trobat informació del llibre en OpenLibrary ni en Google Books");
                 return;
             }
@@ -70,6 +67,8 @@
             if (volumeInfo.previewLink) $('#id_preview_url').val(volumeInfo.previewLink);
             if (volumeInfo.imageLinks && volumeInfo.imageLinks.thumbnail) {
                 $('#id_thumbnail_url').val(volumeInfo.imageLinks.thumbnail);
+                // Actualizar la imagen de miniatura en el formulario
+                $('.field-thumb img').attr('src', volumeInfo.imageLinks.thumbnail);
             }
 
             // Título
@@ -104,7 +103,7 @@
                         }
                     }
                 } catch (e) {
-                    console.log("Error al procesar la fecha: " + e);
+                    // Error al procesar la fecha
                 }
             }
 
@@ -115,8 +114,6 @@
             if (volumeInfo.description) {
                 $('#id_resum').val(volumeInfo.description);
             }
-
-            console.log("Información cargada correctamente desde Google Books");
 
         }).fail(function (error) {
             alert("No s'ha pogut trobar informació del llibre en cap dels serveis disponibles");
@@ -130,23 +127,21 @@
             dataType: "json",   // necessitem això pq ens retorni un objecte JSON
         }).done(function (msg) {
             var llibre = msg["ISBN:" + isbn];
-            if (!llibre) {
-                console.log("No s'ha trobat l'ISBN");
-                alert("No s'ha trobat l'ISBN");
+            if (!llibre || !llibre.details) {
+                alert("No s'ha trobat l'ISBN a Open Library, provant amb Google Books...");
+                carrega_info_isbn_de_google_books(isbn);
                 return;
             }
-            console.log(msg);
-            if (!llibre.details) {
-                console.log("No s'ha trobat detalls del llibre");
-                alert("No s'ha trobat detalls del llibre");
-                return;
-            }
-
+            
             // Datos básicos del libro
             $('#id_ISBN').val(isbn);
             if (llibre.info_url) $('#id_info_url').val(llibre.info_url);
             if (llibre.preview_url) $('#id_preview_url').val(llibre.preview_url);
-            if (llibre.thumbnail_url) $('#id_thumbnail_url').val(llibre.thumbnail_url);
+            if (llibre.thumbnail_url) {
+                $('#id_thumbnail_url').val(llibre.thumbnail_url);
+                // Actualizar la imagen de miniatura en el formulario
+                $('.field-thumb img').attr('src', llibre.thumbnail_url);
+            }
 
             var details = llibre.details;
 
@@ -195,7 +190,7 @@
                         }
                     }
                 } catch (e) {
-                    console.log("Error al procesar la fecha: " + e);
+                    // Error al procesar la fecha
                 }
             }
 
@@ -246,7 +241,7 @@
 
             async function detectBarcode() {
                 if (videoElement.readyState !== 4) {
-                    console.error('El flux de vídeo no està llest.');
+                    // El flux de vídeo no està llest
                     return;
                 }
 
@@ -259,7 +254,7 @@
                         resultElement.textContent = 'Escanejant...';
                     }
                 } catch (error) {
-                    console.error('Error en la detecció de codis:', error);
+                    // Error en la detecció de codis
                     resultElement.textContent = 'Error en la detecció de codis.';
                     resultElement.classList.add('error');
                 }
@@ -269,7 +264,7 @@
 
             detectBarcode();
         } catch (error) {
-            console.error('Error al accedir a la càmera:', error);
+            // Error al accedir a la càmera
             resultElement.textContent = 'No es pot accedir a la càmera.';
             resultElement.classList.add('error');
         }
