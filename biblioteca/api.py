@@ -245,15 +245,15 @@ def obtenir_usuari(request):
         imatge_url = user.imatge.url if user.imatge else None 
         
         return {
-            "id": user.id,
-            "username": user.username,
-            "first_name": user.first_name,
-            "last_name": user.last_name,
-            "email": user.email,
-            "telefon": user.telefon,
-            "is_staff": user.is_staff,
-            "is_superuser": user.is_superuser,
-            "user_permissions": user_permissions,
+            "id": user.id if user else None,
+            "username": user.username if user else None,
+            "first_name": user.first_name if user else None,
+            "last_name": user.last_name if user else None,
+            "email": user.email if user else None,
+            "telefon": user.telefon if user else None,
+            "is_staff": user.is_staff if user else None,
+            "is_superuser": user.is_superuser if user else None,
+            "user_permissions": user_permissions if user else None,
             "centre": {
                 "id": user.centre.id,
                 "nom": user.centre.nom
