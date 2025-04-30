@@ -15,6 +15,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path("api/", api.urls),
     path("import_users/", views.import_users),
+    path('test-403/', views.test_403),
 ]
 
 # Manejadores de errores
