@@ -5,49 +5,165 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Error 404 - Página no encontrada</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            padding: 50px;
-            background-color: #f5f5f5;
-        }
-
-        .error-container {
-            max-width: 600px;
-            margin: 0 auto;
-            background-color: white;
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-        }
-
-        h1 {
-            color: #e74c3c;
-        }
-
-        p {
-            font-size: 18px;
-            color: #555;
-        }
-
-        a {
-            color: #3498db;
-            text-decoration: none;
-        }
-
-        a:hover {
-            text-decoration: underline;
-        }
-    </style>
+    <link rel="stylesheet" href="ErrorPage.css">
 </head>
+
+<style>
+    /* Estilos para páginas de error 403 y 404 */
+
+    :root {
+        /* Importando las variables de color principales del proyecto */
+        --black: #232323;
+        --grey: #7e7e7e;
+        --grey-light: #f0f0f0;
+        --grey-lighter: #f5f5f5;
+        --darkblue: #2c4391;
+        --darkblue-accent: #4158a3;
+        --blue: #a8afd8;
+        --lightblue: #dee1f2;
+        --whitesmoke: #fafafa;
+        --white: #ffffff;
+        --danger-accent: #a7575f;
+        --danger-color: #721c24;
+        --font-family: "Inter", sans-serif;
+    }
+
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+
+    body {
+        font-family: var(--font-family);
+        background-color: var(--whitesmoke);
+        color: var(--black);
+        height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .error-container {
+        width: 100%;
+        max-width: 600px;
+        padding: 40px;
+        text-align: center;
+    }
+
+    .error-content {
+        background-color: var(--white);
+        border-radius: 8px;
+        padding: 40px 30px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
+    }
+
+    .error-title {
+        font-size: 28px;
+        color: var(--darkblue);
+        margin-bottom: 30px;
+        font-weight: 700;
+    }
+
+    .error-image {
+        position: relative;
+        height: 150px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 20px 0;
+    }
+
+    .error-image span {
+        font-size: 120px;
+        font-weight: 800;
+        color: var(--lightblue);
+        opacity: 0.8;
+        letter-spacing: 8px;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .error-subtitle {
+        font-size: 24px;
+        color: var(--danger-color);
+        margin-bottom: 20px;
+        font-weight: 600;
+    }
+
+    .error-message {
+        font-size: 16px;
+        color: var(--grey);
+        line-height: 1.5;
+        margin-bottom: 30px;
+    }
+
+    .error-button {
+        background-color: var(--darkblue);
+        color: var(--white);
+        border: none;
+        padding: 12px 24px;
+        border-radius: 5px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: 0.3s;
+    }
+
+    .error-button:hover {
+        background-color: var(--darkblue-accent);
+    }
+
+    .error-button:focus {
+        outline: 2px solid var(--blue);
+        outline-offset: 2px;
+    }
+
+    /* Estilos específicos para dispositivos móviles */
+    @media (max-width: 768px) {
+        .error-container {
+            padding: 20px;
+        }
+
+        .error-content {
+            padding: 25px 15px;
+        }
+
+        .error-image span {
+            font-size: 100px;
+        }
+
+        .error-title {
+            font-size: 24px;
+        }
+
+        .error-subtitle {
+            font-size: 20px;
+        }
+    }
+</style>
 
 <body>
     <div class="error-container">
-        <h1>Error 404 - Página no encontrada</h1>
-        <p>Lo sentimos, la página que estás buscando no existe.</p>
-        <p>Por favor, verifica la URL o <a href="/">regresa a la página principal</a>.</p>
+        <div class="error-content">
+            <h1 class="error-title">Error 404</h1>
+            <div class="error-image">
+                <span>404</span>
+            </div>
+            <h2 class="error-subtitle">Pàgina no trobada</h2>
+            <p class="error-message">
+                Ho sentim, la pàgina que esteu cercant no existeix o no està disponible.
+            </p>
+            <button id="goBackButton" class="error-button">
+                Tornar enrere
+            </button>
+        </div>
     </div>
+
+    <script>
+        document.getElementById('goBackButton').addEventListener('click', function () {
+            window.location.href = 'https://biblioteca1.ieti.site';
+        });
+    </script>
 </body>
 
 </html>

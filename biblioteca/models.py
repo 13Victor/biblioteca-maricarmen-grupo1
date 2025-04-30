@@ -85,34 +85,54 @@ class Dispositiu(Cataleg):
     marca = models.CharField(max_length=100)
     model = models.CharField(max_length=100,null=True,blank=True)
 
+# Usuaris i Centre
+class Centre(models.Model):
+    nom = models.CharField(max_length=200)
+    def __str__(self):
+        return self.nom
+
+class Grup(models.Model):
+    nom = models.CharField(max_length=200)
+    def __str__(self):
+        return self.nom
+
+class Usuari(AbstractUser):
+    telefon = models.CharField(max_length=9,blank=True,null=True)
+    centre = models.ForeignKey(Centre,on_delete=models.SET_NULL,null=True,blank=True)  # Centro puede ser null para usuarios normales
+    grup = models.ForeignKey(Grup,on_delete=models.SET_NULL,null=True,blank=True)
+    imatge = models.ImageField(upload_to='usuaris/',null=True,blank=True)
+    auth_token = models.CharField(max_length=32,blank=True,null=True)
+
+    def is_bibliotecari(self):
+        return self.groups.filter(name='Bibliotecaris').exists()
+
+    def save(self, *args, **kwargs):
+        if self.is_staff and not self.centre and not self.pk:  # solo para nuevos usuarios staff
+            raise ValueError("Staff users must have a centre assigned")
+        if self.is_staff and not self.centre and self.pk:  # para usuarios existentes
+            original = Usuari.objects.get(pk=self.pk)
+            if not original.is_staff and self.is_staff:  # solo si se está convirtiendo en staff
+                raise ValueError("Staff users must have a centre assigned")
+        super().save(*args, **kwargs)
+
 class Exemplar(models.Model):
     cataleg = models.ForeignKey(Cataleg, on_delete=models.CASCADE)
     registre = models.CharField(max_length=100,null=True,blank=True)
     exclos_prestec = models.BooleanField(default=False)
     baixa = models.BooleanField(default=False)
+    centre = models.ForeignKey(Centre, on_delete=models.PROTECT, verbose_name="Centre")
+    
+    class Meta:
+        verbose_name = "Exemplar"
+        verbose_name_plural = "Exemplars"
+        ordering = ['registre']
+
     def __str__(self):
         return "REG:{} - {}".format(self.registre,self.cataleg.titol)
 
 class Imatge(models.Model):
     cataleg = models.ForeignKey(Cataleg, on_delete=models.CASCADE)
     imatge = models.ImageField(upload_to='imatges/')
-
-
-# Usuaris
-
-class Centre(models.Model):
-    nom = models.CharField(max_length=200)
-
-class Cicle(models.Model):
-    nom = models.CharField(max_length=200)
-
-class Usuari(AbstractUser):
-    telefon = models.CharField(max_length=9,blank=True,null=True)
-    centre = models.ForeignKey(Centre,on_delete=models.SET_NULL,null=True,blank=True)
-    cicle = models.ForeignKey(Cicle,on_delete=models.SET_NULL,null=True,blank=True)
-    imatge = models.ImageField(upload_to='usuaris/',null=True,blank=True)
-    auth_token = models.CharField(max_length=32,blank=True,null=True)
-
 
 class Reserva(models.Model):
     class Meta:

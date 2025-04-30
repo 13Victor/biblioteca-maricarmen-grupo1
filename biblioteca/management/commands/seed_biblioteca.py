@@ -7,7 +7,7 @@ from tqdm import tqdm
 from biblioteca.models import (
     Pais, Llengua, Categoria, 
     Llibre, Revista, CD, DVD, BR, Dispositiu, 
-    Exemplar, Centre, Cicle, Usuari, Prestec, Reserva
+    Exemplar, Centre, Grup, Usuari, Prestec, Reserva
 )
 
 class Command(BaseCommand):
@@ -63,6 +63,18 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS('Successfully seeded database'))
 
     def _setup_initial_data(self, fake):
+        # Create specific centres
+        if Centre.objects.count() == 0:
+            centres = [
+                "IES Esteve Terradas i Illa",
+                "IES Provençana",
+                "IES La Guineueta",
+                "IES Anna Gironella de Mundet",
+                "IES Mare de Déu de la Mercè"
+            ]
+            for nom in centres:
+                Centre.objects.create(nom=nom)
+        
         # Create languages if none exist
         if Llengua.objects.count() == 0:
             llengues = [
@@ -427,6 +439,11 @@ class Command(BaseCommand):
 
     def _create_exemplars(self, cataleg_item, count):
         """Create a specific number of exemplars (copies) for a catalog item"""
+        # Get all centres or create default if none exist
+        centres = list(Centre.objects.all())
+        if not centres:
+            centres = [Centre.objects.create(nom="IES Esteve Terradas i Illa")]
+
         for i in range(count):
             # Some random variation in exemplar status
             exclos_prestec = random.random() < 0.2  # 20% excluded from loans
@@ -436,13 +453,14 @@ class Command(BaseCommand):
                 cataleg=cataleg_item,
                 registre=f"{cataleg_item.signatura}-{i+1}",
                 exclos_prestec=exclos_prestec,
-                baixa=baixa
+                baixa=baixa,
+                centre=random.choice(centres)  # Assign a random centre
             )
 
     def _create_users(self, fake, count):
         with tqdm(total=count, desc="Creating users") as pbar:
             centres = Centre.objects.all()
-            cicles = Cicle.objects.all()
+            grups = Grup.objects.all()
             
             for _ in range(count):
                 first_name = fake.first_name()
@@ -457,7 +475,7 @@ class Command(BaseCommand):
                     last_name=last_name,
                     is_active=True,
                     centre=random.choice(centres) if centres else None,
-                    cicle=random.choice(cicles) if cicles else None,
+                    grup=random.choice(grups) if grups else None,
                     telefon=f"6{random.randint(10000000, 99999999)}"
                 )
                 user.set_password('password123')  # Set a default password

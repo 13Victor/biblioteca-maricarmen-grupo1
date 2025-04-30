@@ -45,53 +45,179 @@
         carrega_info_isbn_de_open_library(isbn);
     }
 
-    function carrega_info_isbn_de_open_library(isbn) {
+    function carrega_info_isbn_de_google_books(isbn) {
         $.ajax({
-          method: "GET",
-          url: "https://openlibrary.org/api/books?bibkeys=ISBN:"+isbn+"&jscmd=details&format=json",
-          dataType: "json",   // necessitem això pq ens retorni un objecte JSON
-        }).done(function (msg) {
-            var llibre = msg["ISBN:"+isbn];
-            if( !llibre ) {
-                console.log("No s'ha trobat l'ISBN");
-                alert("No s'ha trobat l'ISBN");
-                return;
-            }
-            console.log(msg);
-            if( !llibre.details ) {
-                console.log("No s'ha trobat detalls del llibre");
-                alert("No s'ha trobat detalls del llibre");
+            method: "GET",
+            url: "https://www.googleapis.com/books/v1/volumes?q=isbn:" + isbn,
+            dataType: "json"
+        }).done(function (data) {
+            if (!data.items || data.items.length === 0) {
+                alert("No s'ha trobat informació del llibre en OpenLibrary ni en Google Books");
                 return;
             }
 
+            const llibre = data.items[0];
+            const volumeInfo = llibre.volumeInfo;
+
+            // Datos básicos del libro
             $('#id_ISBN').val(isbn);
-            if(llibre.info_url) $('#id_info_url').val(llibre.info_url);
-            if(llibre.preview_url) $('#id_preview_url').val(llibre.preview_url);
-            if(llibre.thumbnail_url) $('#id_thumbnail_url').val(llibre.thumbnail_url);
 
-            var details = llibre.details;
-            if(details.title) $('#id_titol').val(details.title);
-            if(details.full_title) $('#id_titol').val(details.full_title);
-            if(details.translation_of) $('#id_titol_original').val(details.translation_of);
-            if(details.number_of_pages) $('#id_pagines').val(details.number_of_pages);
-            if(details.publishers) $('#id_editorial').val(details.publishers[0]);
-            if(details.authors) $('#id_autor').val(details.authors[0].name);
-            if(details.publish_date) {
-                let data = new Date(details.publish_date);
-                let data2 = data.getDate()+"/"+(data.getMonth()+1)+"/"+data.getFullYear();
-                $('#id_data_edicio').val(data2);
+            // URLs de información, vista previa y miniatura
+            if (volumeInfo.infoLink) $('#id_info_url').val(volumeInfo.infoLink);
+            if (volumeInfo.previewLink) $('#id_preview_url').val(volumeInfo.previewLink);
+            if (volumeInfo.imageLinks && volumeInfo.imageLinks.thumbnail) {
+                $('#id_thumbnail_url').val(volumeInfo.imageLinks.thumbnail);
+                // Actualizar la imagen de miniatura en el formulario
+                $('.field-thumb img').attr('src', volumeInfo.imageLinks.thumbnail);
             }
-            if(details.description) $('#id_resum').val(details.description.value);
-            /*if(details.languages) {
-                var lang_code = details.languages[0].key;
 
-                $('#id_autor').val(details.authors[0].name);
-            }*/
+            // Título
+            if (volumeInfo.title) $('#id_titol').val(volumeInfo.title);
 
-        }).fail(function () {
-            alert("Error en carregar la informació de l'ISBN");
+            // Autor
+            if (volumeInfo.authors && volumeInfo.authors.length > 0) {
+                $('#id_autor').val(volumeInfo.authors[0]);
+            }
+
+            // Editorial
+            if (volumeInfo.publisher) $('#id_editorial').val(volumeInfo.publisher);
+
+            // Fecha de edición
+            if (volumeInfo.publishedDate) {
+                try {
+                    let fecha = volumeInfo.publishedDate;
+                    // Intentar varios formatos de fecha
+                    let fechaObj = new Date(fecha);
+
+                    if (!isNaN(fechaObj)) {
+                        // Si la fecha es válida, formatearla
+                        let dia = fechaObj.getDate();
+                        let mes = fechaObj.getMonth() + 1;
+                        let anyo = fechaObj.getFullYear();
+                        $('#id_data_edicio').val(dia + "/" + mes + "/" + anyo);
+                    } else {
+                        // Si solo tenemos el año
+                        let matchYear = fecha.match(/\d{4}/);
+                        if (matchYear) {
+                            $('#id_data_edicio').val("01/01/" + matchYear[0]);
+                        }
+                    }
+                } catch (e) {
+                    // Error al procesar la fecha
+                }
+            }
+
+            // Número de páginas
+            if (volumeInfo.pageCount) $('#id_pagines').val(volumeInfo.pageCount);
+
+            // Resumen del libro
+            if (volumeInfo.description) {
+                $('#id_resum').val(volumeInfo.description);
+            }
+
+        }).fail(function (error) {
+            alert("No s'ha pogut trobar informació del llibre en cap dels serveis disponibles");
         });
     }
+
+    function carrega_info_isbn_de_open_library(isbn) {
+        $.ajax({
+            method: "GET",
+            url: "https://openlibrary.org/api/books?bibkeys=ISBN:" + isbn + "&jscmd=details&format=json",
+            dataType: "json",   // necessitem això pq ens retorni un objecte JSON
+        }).done(function (msg) {
+            var llibre = msg["ISBN:" + isbn];
+            if (!llibre || !llibre.details) {
+                alert("No s'ha trobat l'ISBN a Open Library, provant amb Google Books...");
+                carrega_info_isbn_de_google_books(isbn);
+                return;
+            }
+            
+            // Datos básicos del libro
+            $('#id_ISBN').val(isbn);
+            if (llibre.info_url) $('#id_info_url').val(llibre.info_url);
+            if (llibre.preview_url) $('#id_preview_url').val(llibre.preview_url);
+            if (llibre.thumbnail_url) {
+                $('#id_thumbnail_url').val(llibre.thumbnail_url);
+                // Actualizar la imagen de miniatura en el formulario
+                $('.field-thumb img').attr('src', llibre.thumbnail_url);
+            }
+
+            var details = llibre.details;
+
+            // Título y título original
+            if (details.title) $('#id_titol').val(details.title);
+            if (details.full_title) $('#id_titol').val(details.full_title);
+            if (details.translation_of) $('#id_titol_original').val(details.translation_of);
+
+            // Autor (incluyendo contribuciones si no hay autor principal)
+            if (details.authors && details.authors.length > 0) {
+                $('#id_autor').val(details.authors[0].name);
+            } else if (details.contributions && details.contributions.length > 0) {
+                // Intentar extraer el nombre del autor de contribuciones
+                let contributor = details.contributions[0];
+                if (contributor.includes('(')) {
+                    let authorName = contributor.split('(')[0].trim();
+                    $('#id_autor').val(authorName);
+                } else {
+                    $('#id_autor').val(contributor);
+                }
+            }
+
+            // Editorial, colección y ubicación
+            if (details.publishers && details.publishers.length > 0) {
+                $('#id_editorial').val(details.publishers[0]);
+            }
+
+            // Fecha de edición
+            if (details.publish_date) {
+                try {
+                    let fecha = details.publish_date;
+                    // Intentar varios formatos de fecha
+                    let fechaObj = new Date(fecha);
+
+                    if (!isNaN(fechaObj)) {
+                        // Si la fecha es válida, formatearla
+                        let dia = fechaObj.getDate();
+                        let mes = fechaObj.getMonth() + 1;
+                        let anyo = fechaObj.getFullYear();
+                        $('#id_data_edicio').val(dia + "/" + mes + "/" + anyo);
+                    } else {
+                        // Si solo tenemos el año
+                        let matchYear = fecha.match(/\d{4}/);
+                        if (matchYear) {
+                            $('#id_data_edicio').val("01/01/" + matchYear[0]);
+                        }
+                    }
+                } catch (e) {
+                    // Error al procesar la fecha
+                }
+            }
+
+            // Número de páginas
+            if (details.number_of_pages) $('#id_pagines').val(details.number_of_pages);
+
+            // Resumen del libro
+            if (details.description) {
+                if (typeof details.description === 'object' && details.description.value) {
+                    $('#id_resum').val(details.description.value);
+                } else if (typeof details.description === 'string') {
+                    $('#id_resum').val(details.description);
+                }
+            }
+
+            // Primera frase como parte del resumen si no hay descripción
+            if (!details.description && details.first_sentence && details.first_sentence.value) {
+                $('#id_resum').val("Primera frase: " + details.first_sentence.value);
+            }
+
+
+        }).fail(function (error) {
+            alert("Error amb la solicitut d'Open Library. Intentant amb Google Books com a alternativa...");
+            carrega_info_isbn_de_google_books(isbn);
+        });
+    }
+
 
     let stream = null;
 
@@ -115,7 +241,7 @@
 
             async function detectBarcode() {
                 if (videoElement.readyState !== 4) {
-                    console.error('El flux de vídeo no està llest.');
+                    // El flux de vídeo no està llest
                     return;
                 }
 
@@ -128,7 +254,7 @@
                         resultElement.textContent = 'Escanejant...';
                     }
                 } catch (error) {
-                    console.error('Error en la detecció de codis:', error);
+                    // Error en la detecció de codis
                     resultElement.textContent = 'Error en la detecció de codis.';
                     resultElement.classList.add('error');
                 }
@@ -138,7 +264,7 @@
 
             detectBarcode();
         } catch (error) {
-            console.error('Error al accedir a la càmera:', error);
+            // Error al accedir a la càmera
             resultElement.textContent = 'No es pot accedir a la càmera.';
             resultElement.classList.add('error');
         }
@@ -153,6 +279,54 @@
             stream = null;
         }
     }
+    
+    // Añadir función para configurar autocompletado
+    function configurarAutocompletado() {
+        // Autocompletado para el campo autor
+        $("#id_autor").autocomplete({
+            source: function(request, response) {
+                $.ajax({
+                    url: "/api/autores/search/",
+                    data: { q: request.term },
+                    dataType: "json",
+                    success: function(data) {
+                        response(data.resultados);
+                    },
+                    error: function() {
+                        response([]);
+                    }
+                });
+            },
+            minLength: 2,
+            delay: 300
+        });
+        
+        // Autocompletado para el campo editorial
+        $("#id_editorial").autocomplete({
+            source: function(request, response) {
+                $.ajax({
+                    url: "/api/editoriales/search/",
+                    data: { q: request.term },
+                    dataType: "json",
+                    success: function(data) {
+                        response(data.resultados);
+                    },
+                    error: function() {
+                        response([]);
+                    }
+                });
+            },
+            minLength: 2,
+            delay: 300
+        });
+    }
+    
+    // Inicializar autocomplete cuando el documento esté listo
+    $(document).ready(function() {
+        if (window.location.pathname.indexOf('/admin/biblioteca/llibre/') !== -1) {
+            configurarAutocompletado();
+        }
+    });
 
     function llegeix_codi_de_barres_amb_camera() {
         const videoElement = document.getElementById('video');

@@ -240,23 +240,25 @@ def obtenir_token(request):
 def obtenir_usuari(request):    
     user = request.auth
     if user:
-        #pasar 'user_permissions' en una lista de diccionarios
         user_permissions = [{"id": perm.id, "name": perm.name} for perm in user.user_permissions.all()]
         
         imatge_url = user.imatge.url if user.imatge else None 
         
-        #respuesta json
         return {
-            "id": user.id,
-            "username": user.username,
-            "first_name": user.first_name,
-            "last_name": user.last_name,
-            "email": user.email,
-            "is_staff": user.is_staff,
-            "is_superuser": user.is_superuser,
-            "user_permissions": user_permissions,
-            "centre": user.centre,
-            "cicle": user.cicle,
+            "id": user.id if user else None,
+            "username": user.username if user else None,
+            "first_name": user.first_name if user else None,
+            "last_name": user.last_name if user else None,
+            "email": user.email if user else None,
+            "telefon": user.telefon if user else None,
+            "is_staff": user.is_staff if user else None,
+            "is_superuser": user.is_superuser if user else None,
+            "user_permissions": user_permissions if user else None,
+            "centre": {
+                "id": user.centre.id,
+                "nom": user.centre.nom
+            } if user.centre else None,
+            "grup": user.grup.nom if user.grup else None,
             "imatge": imatge_url,
         }
     
@@ -272,6 +274,7 @@ class EditUsuariIn(Schema):
     email: Optional[str]
     first_name: Optional[str]
     last_name: Optional[str]
+    telefon: Optional[str]
 
 @api.post("/editUsuari/")
 def edit_usuari(request, payload: EditUsuariIn, imatge: Optional[UploadedFile] = File(None)):
@@ -284,6 +287,8 @@ def edit_usuari(request, payload: EditUsuariIn, imatge: Optional[UploadedFile] =
             user.first_name = payload.first_name
         if payload.last_name and payload.last_name != user.last_name:
             user.last_name = payload.last_name
+        if payload.telefon and payload.telefon != user.telefon:
+            user.telefon = payload.telefon
         if imatge:
             user.imatge.save(imatge.name, imatge)
 
@@ -293,6 +298,7 @@ def edit_usuari(request, payload: EditUsuariIn, imatge: Optional[UploadedFile] =
             "email": user.email,
             "first_name": user.first_name,
             "last_name": user.last_name,
+            "telefon": user.telefon,
             "imatge": user.imatge.url if user.imatge else None
         }
     except Usuari.DoesNotExist:
@@ -300,6 +306,74 @@ def edit_usuari(request, payload: EditUsuariIn, imatge: Optional[UploadedFile] =
     except Exception as e:
         return {"error": str(e)}, 400
 
+
+
+# Endpoint per obtenir els préstecs d'un usuari, donat el usuari
+@api.get("/usuari/historial_prestecs", auth=AuthBearer())
+def get_historial_prestecs_usuari(request, usuari_id: int):
+    try:
+        # Verificar que el usuario solo puede ver su propio historial
+        if request.auth.id != usuari_id:
+            return {"error": "No autoritzat"}, 403
+
+        user = Usuari.objects.get(id=usuari_id)
+        prestecs = Prestec.objects.filter(usuari=user).select_related('exemplar__cataleg')
+
+        if not prestecs:
+            return []
+
+        historial = []
+        for prestec in prestecs:
+            try:
+                exemplar = prestec.exemplar
+                if not exemplar:
+                    continue
+                    
+                cataleg = exemplar.cataleg
+                if not cataleg:
+                    continue
+
+                # Determinar el tipus del catàleg
+                tipus = "Indefinit"
+                tipus_map = {
+                    "cd": "CD",
+                    "dvd": "DVD", 
+                    "br": "BluRay",
+                    "llibre": "Llibre",
+                    "revista": "Revista",
+                    "dispositiu": "Dispositiu"
+                }
+                
+                for t in tipus_map.keys():
+                    if hasattr(cataleg, t):
+                        tipus = tipus_map[t]
+                        break
+
+                prestec_dict = {
+                    "prestec_id": prestec.id,
+                    "data_prestec": prestec.data_prestec.isoformat() if prestec.data_prestec else None,
+                    "data_devolucio": prestec.data_retorn.isoformat() if prestec.data_retorn else None,  # Cambiar a data_retorn
+                    "exemplar": {
+                        "id": exemplar.id,
+                        "registre": exemplar.registre,
+                        "cataleg": {
+                            "id": cataleg.id,
+                            "titol": cataleg.titol,
+                            "autor": cataleg.autor,
+                            "tipus": tipus
+                        }
+                    }
+                }
+                historial.append(prestec_dict)
+            except Exception:
+                continue
+
+        return historial
+
+    except Usuari.DoesNotExist:
+        return {"error": "Usuari no trobat"}, 404
+    except Exception as e:
+        return {"error": str(e)}, 400
 
 
 class CatalegOut(Schema):
@@ -380,3 +454,307 @@ def get_exemplars(request):
         )
 
     return result
+
+# Schema for exemplars by catalog item
+class ExemplarItemOut(Schema):
+    id: int
+    registre: str
+    exclos_prestec: bool
+    baixa: bool
+    centre: Optional[dict] = None  # Añadir centro
+    cataleg: Optional[dict] = None  # Añadir catálogo para mostrar título y autor
+
+# 2. Actualizar el endpoint get_exemplars_by_item para incluir esta información
+@api.get("/exemplars/by-item/{item_id}", response=List[ExemplarItemOut])
+def get_exemplars_by_item_public(request, item_id: int):
+    """
+    Endpoint público para obtener ejemplares por ítem para mostrar disponibilidad por centro
+    No requiere autenticación
+    """
+    exemplars = Exemplar.objects.filter(
+        cataleg_id=item_id
+    ).select_related('centre', 'cataleg')
+    
+    result = []
+    for exemplar in exemplars:
+        result.append({
+            "id": exemplar.id,
+            "registre": exemplar.registre,
+            "exclos_prestec": exemplar.exclos_prestec,
+            "baixa": exemplar.baixa,
+            "centre": {
+                "id": exemplar.centre.id,
+                "nom": exemplar.centre.nom
+            } if exemplar.centre else None,
+            "cataleg": {
+                "id": exemplar.cataleg.id,
+                "titol": exemplar.cataleg.titol,
+                "autor": exemplar.cataleg.autor
+            } if exemplar.cataleg else None
+        })
+    
+    return result
+
+# Schema for users list (for loan creation)
+class UserOut(Schema):
+    id: int
+    username: str
+    first_name: Optional[str]
+    last_name: Optional[str]
+    email: Optional[str]
+    centre: Optional[str]
+
+# Schema for loan creation
+class LoanCreateIn(Schema):
+    usuari_id: int
+    exemplar_id: int
+    anotacions: Optional[str] = None
+
+class LoanCreateOut(Schema):
+    id: int
+    usuari: UserOut
+    exemplar: ExemplarItemOut
+    data_prestec: str
+    mensaje: str = "Préstamo creado correctamente"
+
+# Get exemplar details by ID
+@api.get("/exemplars/{exemplar_id}/", response=ExemplarItemOut, auth=AuthBearer())
+def get_exemplar_by_id(request, exemplar_id: int):
+    user = request.auth
+    if not user:
+        return {"error": "No autorizado"}, 401
+    
+    try:
+        exemplar = Exemplar.objects.select_related('centre', 'cataleg').get(id=exemplar_id)
+        return {
+            "id": exemplar.id,
+            "registre": exemplar.registre,
+            "exclos_prestec": exemplar.exclos_prestec,
+            "baixa": exemplar.baixa,
+            "centre": {
+                "id": exemplar.centre.id,
+                "nom": exemplar.centre.nom
+            } if exemplar.centre else None,
+            "cataleg": {
+                "id": exemplar.cataleg.id,
+                "titol": exemplar.cataleg.titol,
+                "autor": exemplar.cataleg.autor
+            } if exemplar.cataleg else None
+        }
+    except Exemplar.DoesNotExist:
+        return {"error": "Ejemplar no encontrado"}, 404
+
+# Get available users for loans
+@api.get("/usuarios-disponibles/", response=List[UserOut], auth=AuthBearer())
+def get_available_users(request):
+    user = request.auth
+    if not user or not user.is_staff:
+        return {"error": "No autorizado"}, 401
+    
+    # Obtener todos los usuarios activos, sin filtrar por centro
+    users = Usuari.objects.filter(is_active=True)
+    
+    result = []
+    for u in users:
+        # No incluir al propio bibliotecario ni a otros usuarios staff
+        if u.id != user.id and not u.is_staff:
+            result.append({
+                "id": u.id,
+                "username": u.username,
+                "first_name": u.first_name,
+                "last_name": u.last_name,
+                "email": u.email,
+                "centre": u.centre.nom if u.centre else None
+            })
+    
+    return result
+
+# Create a new loan
+@api.post("/prestecs/crear/", response=LoanCreateOut, auth=AuthBearer())
+def create_loan(request, payload: LoanCreateIn):
+    bibliotecari = request.auth
+    if not bibliotecari or not bibliotecari.is_staff:
+        return {"error": "No autorizado"}, 401
+    
+    try:
+        # Obtener el usuario y ejemplar
+        usuario = Usuari.objects.get(id=payload.usuari_id)
+        exemplar = Exemplar.objects.get(id=payload.exemplar_id)
+        
+        # Verificar que el ejemplar está disponible
+        if exemplar.exclos_prestec:
+            return {"error": "El ejemplar está excluido de préstamo"}, 400
+        if exemplar.baixa:
+            return {"error": "El ejemplar está dado de baja"}, 400
+        
+        # Reforzar validación de centro: un bibliotecario solo puede prestar ejemplares de su centro
+        if not bibliotecari.centre:
+            return {"error": "El bibliotecario no tiene un centro asignado"}, 400
+            
+        if not exemplar.centre:
+            return {"error": "El ejemplar no tiene un centro asignado"}, 400
+            
+        # Comparar los IDs de los centros, no las instancias
+        if bibliotecari.centre.id != exemplar.centre.id and not bibliotecari.is_superuser:
+            return {"error": f"El ejemplar pertenece al centre '{exemplar.centre.nom}' y tú perteneces a '{bibliotecari.centre.nom}'"}, 400
+        
+        # Crear el préstamo
+        prestec = Prestec.objects.create(
+            usuari=usuario,
+            exemplar=exemplar,
+            anotacions=payload.anotacions
+        )
+        
+        # Marcar el ejemplar como excluido de préstamo
+        exemplar.exclos_prestec = True
+        exemplar.save()
+        
+        # Registrar en el log
+        Log.objects.create(
+            usuari=bibliotecari.username,
+            accio=f"Préstamo creado: ID {prestec.id} - Ejemplar {exemplar.registre} a {usuario.username}",
+            tipus="INFO"
+        )
+        
+        # Devolver resultado
+        return {
+            "id": prestec.id,
+            "usuari": {
+                "id": usuario.id,
+                "username": usuario.username,
+                "first_name": usuario.first_name,
+                "last_name": usuario.last_name,
+                "email": usuario.email,
+                "centre": usuario.centre.nom if usuario.centre else None
+            },
+            "exemplar": {
+                "id": exemplar.id,
+                "registre": exemplar.registre,
+                "exclos_prestec": exemplar.exclos_prestec,
+                "baixa": exemplar.baixa,
+                "centre": {
+                    "id": exemplar.centre.id,
+                    "nom": exemplar.centre.nom
+                } if exemplar.centre else None
+            },
+            "data_prestec": prestec.data_prestec.isoformat()
+        }
+        
+    except Usuari.DoesNotExist:
+        return {"error": "Usuario no encontrado"}, 404
+    except Exemplar.DoesNotExist:
+        return {"error": "Ejemplar no encontrado"}, 404
+    except Exception as e:
+        # Registrar error en el log
+        Log.objects.create(
+            usuari=bibliotecari.username,
+            accio=f"Error al crear préstamo: {str(e)}",
+            tipus="ERROR"
+        )
+        return {"error": f"Error al crear el préstamo: {str(e)}"}, 500
+
+# Nuevos endpoints para autocompletar autores y editoriales
+@api.get("/autores/search/")
+def buscar_autores(request, q: str):
+    """Busca autores en la base de datos y en Google Books si es necesario"""
+    q = q.strip()
+    # Primero buscar en nuestra base de datos - ordenamos para priorizar los que empiezan por el texto
+    # Creamos dos queries: una para los que empiezan por el texto y otra para los que lo contienen
+    resultados_db_starts = Llibre.objects.filter(autor__istartswith=q).values('autor').distinct()
+    resultados_db_contains = Llibre.objects.filter(autor__icontains=q).exclude(autor__istartswith=q).values('autor').distinct()
+    
+    # Combinamos los resultados, primero los que empiezan por el texto
+    autores_starts = [item['autor'] for item in resultados_db_starts if item['autor']]
+    autores_contains = [item['autor'] for item in resultados_db_contains if item['autor']]
+    
+    # Usamos un diccionario para eliminar duplicados preservando el orden
+    autores_dict = {}
+    for autor in autores_starts + autores_contains:
+        # Usamos el nombre en minúsculas como clave para evitar duplicados por mayúsculas/minúsculas
+        autores_dict[autor.lower()] = autor
+    
+    autores = list(autores_dict.values())
+    
+    # Si no hay suficientes resultados (menos de 5), buscamos en Google Books
+    if len(autores) < 5:
+        try:
+            import requests
+            response = requests.get(f"https://www.googleapis.com/books/v1/volumes?q=inauthor:{q}&maxResults=10")
+            if response.status_code == 200:
+                data = response.json()
+                if 'items' in data:
+                    # Lista temporal para ordenar los resultados de Google Books
+                    google_autores_start = []
+                    google_autores_contain = []
+                    
+                    for item in data['items']:
+                        if 'volumeInfo' in item and 'authors' in item['volumeInfo']:
+                            for autor in item['volumeInfo']['authors']:
+                                if autor and autor.lower() not in autores_dict:
+                                    # Verificamos si el autor comienza con el texto buscado
+                                    if autor.lower().startswith(q.lower()):
+                                        google_autores_start.append(autor)
+                                    else:
+                                        google_autores_contain.append(autor)
+                                    # Agregamos al diccionario para evitar duplicados en siguientes iteraciones
+                                    autores_dict[autor.lower()] = autor
+                    
+                    # Añadimos los autores de Google Books a nuestra lista, primero los que empiezan por q
+                    autores.extend(google_autores_start)
+                    autores.extend(google_autores_contain)
+        except Exception as e:
+            print(f"Error al buscar en Google Books: {e}")
+    
+    return {"resultados": autores[:10]}  # Devolvemos máximo 10 resultados
+
+@api.get("/editoriales/search/")
+def buscar_editoriales(request, q: str):
+    """Busca editoriales en la base de datos y en Google Books si es necesario"""
+    q = q.strip()
+    # Primero buscar en nuestra base de datos - ordenamos para priorizar las que empiezan por el texto
+    resultados_db_starts = Llibre.objects.filter(editorial__istartswith=q).values('editorial').distinct()
+    resultados_db_contains = Llibre.objects.filter(editorial__icontains=q).exclude(editorial__istartswith=q).values('editorial').distinct()
+    
+    # Combinamos los resultados, primero los que empiezan por el texto
+    editoriales_starts = [item['editorial'] for item in resultados_db_starts if item['editorial']]
+    editoriales_contains = [item['editorial'] for item in resultados_db_contains if item['editorial']]
+    
+    # Usamos un diccionario para eliminar duplicados preservando el orden
+    editoriales_dict = {}
+    for editorial in editoriales_starts + editoriales_contains:
+        # Usamos el nombre en minúsculas como clave para evitar duplicados por mayúsculas/minúsculas
+        editoriales_dict[editorial.lower()] = editorial
+    
+    editoriales = list(editoriales_dict.values())
+    
+    # Si no hay suficientes resultados (menos de 5), buscamos en Google Books
+    if len(editoriales) < 5:
+        try:
+            import requests
+            response = requests.get(f"https://www.googleapis.com/books/v1/volumes?q=inpublisher:{q}&maxResults=10")
+            if response.status_code == 200:
+                data = response.json()
+                if 'items' in data:
+                    # Lista temporal para ordenar los resultados de Google Books
+                    google_editoriales_start = []
+                    google_editoriales_contain = []
+                    
+                    for item in data['items']:
+                        if 'volumeInfo' in item and 'publisher' in item['volumeInfo']:
+                            publisher = item['volumeInfo']['publisher']
+                            if publisher and publisher.lower() not in editoriales_dict:
+                                # Verificamos si la editorial comienza con el texto buscado
+                                if publisher.lower().startswith(q.lower()):
+                                    google_editoriales_start.append(publisher)
+                                else:
+                                    google_editoriales_contain.append(publisher)
+                                # Agregamos al diccionario para evitar duplicados en siguientes iteraciones
+                                editoriales_dict[publisher.lower()] = publisher
+                    
+                    # Añadimos las editoriales de Google Books a nuestra lista, manteniendo prioridad
+                    editoriales.extend(google_editoriales_start)
+                    editoriales.extend(google_editoriales_contain)
+        except Exception as e:
+            print(f"Error al buscar en Google Books: {e}")
+    
+    return {"resultados": editoriales[:10]}  # Devolvemos máximo 10 resultados

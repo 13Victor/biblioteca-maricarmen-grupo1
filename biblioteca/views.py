@@ -8,10 +8,10 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.db.models import Q
 import json
-from .models import Usuari, Centre, Cicle
+from .models import Usuari, Centre, Grup
 import random
 import string
-# More imports ...
+
 
 # Index View
 def index(response):
@@ -43,7 +43,7 @@ def import_users(request):
                 if Usuari.objects.filter(email=email).exists():
                     error_details.append({
                         "email": email,
-                        "error": "El email ya existe en la base de datos"
+                        "error": "El email ja existeix"
                     })
                     errors_count += 1
                     continue
@@ -52,7 +52,7 @@ def import_users(request):
                 if telefon and Usuari.objects.filter(telefon=telefon).exists():
                     error_details.append({
                         "email": email,
-                        "error": "El teléfono ya está registrado en la base de datos"
+                        "error": "El teléfon ja existeix"
                     })
                     errors_count += 1
                     continue
@@ -65,9 +65,9 @@ def import_users(request):
                     )
                 
                 # Búsqueda o creación de Ciclo
-                cicle = None
+                grup = None
                 if "grup" in user_data and user_data["grup"]:
-                    cicle, _ = Cicle.objects.get_or_create(
+                    grup, _ = Grup.objects.get_or_create(
                         nom=user_data["grup"]
                     )
                 
@@ -86,7 +86,7 @@ def import_users(request):
                     last_name=f"{user_data.get('cognom1', '')} {user_data.get('cognom2', '')}".strip(),
                     telefon=telefon,
                     centre=centre,
-                    cicle=cicle
+                    grup=grup
                 )
                 new_user.set_password(temp_password)
                 new_user.save()
@@ -114,20 +114,15 @@ def import_users(request):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=400)
 
-# Funciones para manejar errores
+# Errores
 def error_404(request, exception):
-    """Maneja el error 404 (página no encontrada)"""
     return render(request, 'errors/404.html', status=404)
 
 def error_403(request, exception=None):
-    """Maneja el error 403 (acceso prohibido)"""
     return render(request, 'errors/403.html', status=403)
 
-# Funciones para probar las páginas de error
-def test_404(request):
-    """Función para probar la página de error 404"""
-    return render(request, 'errors/404.html', status=404)
+# 403
+from django.core.exceptions import PermissionDenied
 
 def test_403(request):
-    """Función para probar la página de error 403"""
-    return render(request, 'errors/403.html', status=403)
+    raise PermissionDenied
