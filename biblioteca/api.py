@@ -387,8 +387,10 @@ class ExemplarItemOut(Schema):
     registre: str
     exclos_prestec: bool
     baixa: bool
+    centre: Optional[dict] = None  # Añadir centro
+    cataleg: Optional[dict] = None  # Añadir catálogo para mostrar título y autor
 
-# Endpoint to get exemplars by catalog item and center
+# 2. Actualizar el endpoint get_exemplars_by_item para incluir esta información
 @api.get("/exemplars/by-item/{item_id}/", response=List[ExemplarItemOut], auth=AuthBearer())
 def get_exemplars_by_item(request, item_id: int):
     user = request.auth
@@ -398,9 +400,27 @@ def get_exemplars_by_item(request, item_id: int):
     exemplars = Exemplar.objects.filter(
         cataleg_id=item_id,
         centre=user.centre
-    )
+    ).select_related('centre', 'cataleg')  # Incluir relaciones
     
-    return exemplars
+    result = []
+    for exemplar in exemplars:
+        result.append({
+            "id": exemplar.id,
+            "registre": exemplar.registre,
+            "exclos_prestec": exemplar.exclos_prestec,
+            "baixa": exemplar.baixa,
+            "centre": {
+                "id": exemplar.centre.id,
+                "nom": exemplar.centre.nom
+            } if exemplar.centre else None,
+            "cataleg": {
+                "id": exemplar.cataleg.id,
+                "titol": exemplar.cataleg.titol,
+                "autor": exemplar.cataleg.autor
+            } if exemplar.cataleg else None
+        })
+    
+    return result
 
 # Schema for users list (for loan creation)
 class UserOut(Schema):
@@ -432,8 +452,22 @@ def get_exemplar_by_id(request, exemplar_id: int):
         return {"error": "No autorizado"}, 401
     
     try:
-        exemplar = Exemplar.objects.get(id=exemplar_id)
-        return exemplar
+        exemplar = Exemplar.objects.select_related('centre', 'cataleg').get(id=exemplar_id)
+        return {
+            "id": exemplar.id,
+            "registre": exemplar.registre,
+            "exclos_prestec": exemplar.exclos_prestec,
+            "baixa": exemplar.baixa,
+            "centre": {
+                "id": exemplar.centre.id,
+                "nom": exemplar.centre.nom
+            } if exemplar.centre else None,
+            "cataleg": {
+                "id": exemplar.cataleg.id,
+                "titol": exemplar.cataleg.titol,
+                "autor": exemplar.cataleg.autor
+            } if exemplar.cataleg else None
+        }
     except Exemplar.DoesNotExist:
         return {"error": "Ejemplar no encontrado"}, 404
 
@@ -444,11 +478,8 @@ def get_available_users(request):
     if not user or not user.is_staff:
         return {"error": "No autorizado"}, 401
     
-    # Obtener usuarios del mismo centro que el bibliotecario o de todos si es superusuario
-    if user.is_superuser:
-        users = Usuari.objects.filter(is_active=True)
-    else:
-        users = Usuari.objects.filter(is_active=True, centre=user.centre)
+    # Obtener todos los usuarios activos, sin filtrar por centro
+    users = Usuari.objects.filter(is_active=True)
     
     result = []
     for u in users:
@@ -484,12 +515,11 @@ def create_loan(request, payload: LoanCreateIn):
             return {"error": "El ejemplar está dado de baja"}, 400
         
         # Verificar que el ejemplar pertenece al centro del bibliotecario
+        # Mantenemos esta validación para que un bibliotecario solo pueda prestar ejemplares de su centro
         if bibliotecari.centre != exemplar.centre and not bibliotecari.is_superuser:
             return {"error": "El ejemplar no pertenece a tu centro"}, 400
         
-        # Verificar que el usuario pertenece al centro del bibliotecario
-        if usuario.centre != bibliotecari.centre and not bibliotecari.is_superuser:
-            return {"error": "El usuario no pertenece a tu centro"}, 400
+        # ELIMINADO: Ya no verificamos que el usuario pertenezca al centro del bibliotecario
         
         # Crear el préstamo
         prestec = Prestec.objects.create(
@@ -497,6 +527,10 @@ def create_loan(request, payload: LoanCreateIn):
             exemplar=exemplar,
             anotacions=payload.anotacions
         )
+        
+        # Marcar el ejemplar como excluido de préstamo
+        exemplar.exclos_prestec = True
+        exemplar.save()
         
         # Registrar en el log
         Log.objects.create(
@@ -519,7 +553,7 @@ def create_loan(request, payload: LoanCreateIn):
             "exemplar": {
                 "id": exemplar.id,
                 "registre": exemplar.registre,
-                "exclos_prestec": exemplar.exclos_prestec,
+                "exclos_prestec": exemplar.exclos_prestec,  # Ahora será True
                 "baixa": exemplar.baixa
             },
             "data_prestec": prestec.data_prestec.isoformat()
