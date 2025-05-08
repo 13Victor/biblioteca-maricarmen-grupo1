@@ -7,6 +7,7 @@ from .models import *
 from typing import List, Optional, Union, Literal
 import secrets
 from django.db.models import Q
+import re  # Importar módulo para manejar signos de puntuación
 
 api = NinjaAPI()
 
@@ -841,3 +842,63 @@ def buscar_editoriales(request, q: str):
             print(f"Error al buscar en Google Books: {e}")
     
     return {"resultados": editoriales[:10]}  # Devolvemos máximo 10 resultados
+
+class ExemplarSuggestionOut(Schema):
+    id: int
+    tipo: str
+    resultado: str
+
+@api.get("/exemplars/search/suggestions/", response=List[ExemplarSuggestionOut])
+def get_exemplar_suggestions(request, q: str = Query(...)):
+    """
+    Endpoint para obtener sugerencias de búsqueda de ejemplares.
+    """
+    if not q:
+        return []
+
+    # Eliminar signos de puntuación de la consulta
+    normalized_query = re.sub(r'[^\w\s]', '', q).lower()
+
+    exemplars = Exemplar.objects.filter(
+        Q(cataleg__titol__icontains=normalized_query) |
+        Q(cataleg__autor__icontains=normalized_query) |
+        Q(cataleg__llibre__editorial__icontains=normalized_query)
+    ).select_related("cataleg")[:50]  # Limitar a 50 resultados para optimización
+
+    results = []
+    seen_results = set()  # Usar un conjunto para garantizar unicidad
+
+    for exemplar in exemplars:
+        if normalized_query in re.sub(r'[^\w\s]', '', exemplar.cataleg.titol).lower():
+            result = {
+                "id": exemplar.id,
+                "tipo": "Título",
+                "resultado": exemplar.cataleg.titol,
+            }
+            if result["resultado"] not in seen_results:
+                results.append(result)
+                seen_results.add(result["resultado"])
+
+        if exemplar.cataleg.autor and normalized_query in re.sub(r'[^\w\s]', '', exemplar.cataleg.autor).lower():
+            result = {
+                "id": exemplar.id,
+                "tipo": "Autor",
+                "resultado": exemplar.cataleg.autor,
+            }
+            if result["resultado"] not in seen_results:
+                results.append(result)
+                seen_results.add(result["resultado"])
+
+        if hasattr(exemplar.cataleg, "llibre") and exemplar.cataleg.llibre.editorial:
+            editorial_normalized = re.sub(r'[^\w\s]', '', exemplar.cataleg.llibre.editorial).lower()
+            if normalized_query in editorial_normalized:
+                result = {
+                    "id": exemplar.id,
+                    "tipo": "Editorial",
+                    "resultado": exemplar.cataleg.llibre.editorial,
+                }
+                if result["resultado"] not in seen_results:
+                    results.append(result)
+                    seen_results.add(result["resultado"])
+
+    return results
