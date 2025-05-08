@@ -28,7 +28,7 @@ class UsuariAdmin(UserAdmin):
 class ExemplarsInline(admin.TabularInline):
     model = Exemplar
     extra = 1
-    fields = ('registre', 'centre', 'exclos_prestec', 'baixa')
+    fields = ('centre', 'exclos_prestec', 'baixa')
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         if db_field.name == "centre":
@@ -83,10 +83,11 @@ class LogAdmin(admin.ModelAdmin):
     readonly_fields = ('data_accio',)
 
 class ExemplarAdmin(admin.ModelAdmin):
-    list_display = ('registre', 'cataleg', 'centre', 'exclos_prestec', 'baixa')
+    list_display = ('registre','cataleg', 'centre', 'exclos_prestec', 'baixa')
     list_filter = ('centre', 'exclos_prestec', 'baixa')
     search_fields = ('registre', 'cataleg__titol')
-    fields = ('cataleg', 'registre', 'centre', 'exclos_prestec', 'baixa')
+    readonly_fields = ['registre']
+    fields = ('registre','cataleg', 'centre', 'exclos_prestec', 'baixa')
 
     def get_form(self, request, obj=None, **kwargs):
         form = super().get_form(request, obj, **kwargs)

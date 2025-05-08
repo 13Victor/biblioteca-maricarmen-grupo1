@@ -1,0 +1,9 @@
+{
+  "dependencies": {
+    "@react-pdf/renderer": "^4.3.0",
+    "canvas": "^3.1.0",
+    "jsbarcode": "^3.11.6",
+    "jspdf": "^3.0.1",
+    "react-barcode": "^1.6.1"
+  }
+}

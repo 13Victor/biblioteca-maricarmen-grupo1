@@ -1,6 +1,8 @@
 from django.contrib.auth import authenticate
-from ninja import NinjaAPI, Schema
+from ninja import NinjaAPI, Schema, Query
 from ninja.security import HttpBasicAuth, HttpBearer
+from django.db.models.functions import Substr, Length
+
 from .models import *
 from typing import List, Optional, Union, Literal
 import secrets
@@ -57,6 +59,87 @@ class SearchResultOut(Schema):
     llengua: Optional[dict] = None
     tags: Optional[List[dict]] = None
     exemplar_counts: ExemplarStateCount = None
+
+# Endpoint que devuelve ejemplares que coincidan con búsqueda
+class ExemplarSearchOut(Schema):
+    id: int
+    registre: str
+    titol: str
+    autor: Optional[str]
+    editorial: Optional[str]
+    tipus: str
+    exclos_prestec: bool
+    baixa: bool
+
+@api.get("/exemplars/search/", response=List[ExemplarSearchOut])
+def search_exemplars(request, q: Optional[str] = Query(None), start: Optional[str] = Query(None), end: Optional[str] = Query(None), exact: Optional[str] = Query(None)):
+    """
+    Endpoint para buscar ejemplares por texto, rango de códigos o código específico.
+    """
+    exemplars = Exemplar.objects.select_related("cataleg").all()
+
+    # Formatear start y end para que tengan 6 caracteres con ceros a la izquierda
+    if start:
+        start = start.zfill(6)
+    if end:
+        end = end.zfill(6)
+
+    if q:
+        # Buscar por título, autor o editorial
+        exemplars = exemplars.filter(
+            Q(cataleg__titol__icontains=q) |
+            Q(cataleg__autor__icontains=q) |
+            Q(cataleg__llibre__editorial__icontains=q)
+        )
+    elif start and end:
+        # Buscar por rango de los últimos 6 dígitos de registre (inclusive)
+        exemplars = exemplars.annotate(
+            registre_suffix=Substr('registre', Length('registre') - 5, 6)  # Extraer los últimos 6 dígitos
+        ).filter(
+            registre_suffix__gte=start,
+            registre_suffix__lte=end
+        )
+    elif start:
+        # Buscar por código específico (últimos 6 dígitos)
+        exemplars = exemplars.annotate(
+            registre_suffix=Substr('registre', Length('registre') - 5, 6)  # Extraer los últimos 6 dígitos
+        ).filter(
+            registre_suffix=start
+        )
+    elif exact:
+        # Buscar por código específico exacto
+        exemplars = exemplars.filter(registre=exact)
+
+    # Formatear los resultados
+    results = []
+    for exemplar in exemplars:
+        tipus = "indefinit"
+        if hasattr(exemplar.cataleg, "llibre"):
+            tipus = "llibre"
+        elif hasattr(exemplar.cataleg, "revista"):
+            tipus = "revista"
+        elif hasattr(exemplar.cataleg, "cd"):
+            tipus = "cd"
+        elif hasattr(exemplar.cataleg, "dvd"):
+            tipus = "dvd"
+        elif hasattr(exemplar.cataleg, "br"):
+            tipus = "br"
+        elif hasattr(exemplar.cataleg, "dispositiu"):
+            tipus = "dispositiu"
+
+        results.append({
+            "id": exemplar.id,
+            "registre": exemplar.registre,
+            "titol": exemplar.cataleg.titol,
+            "autor": exemplar.cataleg.autor,
+            "editorial": exemplar.cataleg.llibre.editorial if hasattr(exemplar.cataleg, "llibre") else None,
+            "tipus": tipus,
+            "exclos_prestec": exemplar.exclos_prestec,
+            "baixa": exemplar.baixa,
+        })
+
+    return results
+
 
 # Endpoint para obtener sugerencias de búsqueda
 @api.get("/cataleg/search/suggestions/", response=List[SearchSuggestionOut])

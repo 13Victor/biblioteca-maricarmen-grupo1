@@ -2,7 +2,7 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.utils.timezone import now
 from django.contrib.auth.hashers import make_password
-
+import re
 
 class Categoria(models.Model):
     class Meta:
@@ -117,18 +117,37 @@ class Usuari(AbstractUser):
 
 class Exemplar(models.Model):
     cataleg = models.ForeignKey(Cataleg, on_delete=models.CASCADE)
-    registre = models.CharField(max_length=100,null=True,blank=True)
+    registre = models.CharField(max_length=100, unique=True, editable=False)
     exclos_prestec = models.BooleanField(default=False)
     baixa = models.BooleanField(default=False)
     centre = models.ForeignKey(Centre, on_delete=models.PROTECT, verbose_name="Centre")
-    
+
     class Meta:
         verbose_name = "Exemplar"
         verbose_name_plural = "Exemplars"
         ordering = ['registre']
 
     def __str__(self):
-        return "REG:{} - {}".format(self.registre,self.cataleg.titol)
+        return f"REG:{self.registre} - {self.cataleg.titol}"
+
+    def save(self, *args, **kwargs):
+        if not self.registre:
+            year = now().year
+            # Filtrar los ejemplares solo del año actual
+            exemplars_del_any = Exemplar.objects.filter(registre__startswith=f'EX-{year}-')
+            # Buscar el mayor NNNNNN de ese año
+            max_num = 0
+            for exemplar in exemplars_del_any:
+                match = re.match(rf'EX-{year}-(\d{{6}})', exemplar.registre)
+                if match:
+                    numero = int(match.group(1))
+                    if numero > max_num:
+                        max_num = numero
+            nou_numero = max_num + 1
+            self.registre = f'EX-{year}-{nou_numero:06d}'
+
+        super().save(*args, **kwargs)
+
 
 class Imatge(models.Model):
     cataleg = models.ForeignKey(Cataleg, on_delete=models.CASCADE)

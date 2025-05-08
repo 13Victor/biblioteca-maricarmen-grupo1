@@ -11,6 +11,7 @@ urlpatterns = [
     path('', views.index),
     path('cataleg/', views.index),
     path('csv-importacio/', views.index),
+    path('etiquetes/', views.index),
     path('historial-prestecs/', views.index),
     path('admin/', admin.site.urls),
     path("api/", api.urls),

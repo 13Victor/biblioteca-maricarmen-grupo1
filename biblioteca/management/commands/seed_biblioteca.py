@@ -2,8 +2,11 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 import random
 from faker import Faker
+import re
+from django.utils.timezone import now
 from datetime import time, timedelta, datetime
 from tqdm import tqdm
+from django.db import transaction
 from biblioteca.models import (
     Pais, Llengua, Categoria, 
     Llibre, Revista, CD, DVD, BR, Dispositiu, 
@@ -439,24 +442,43 @@ class Command(BaseCommand):
 
     def _create_exemplars(self, cataleg_item, count):
         """Create a specific number of exemplars (copies) for a catalog item"""
-        # Get all centres or create default if none exist
         centres = list(Centre.objects.all())
         if not centres:
             centres = [Centre.objects.create(nom="IES Esteve Terradas i Illa")]
 
-        for i in range(count):
-            # Some random variation in exemplar status
-            exclos_prestec = random.random() < 0.2  # 20% excluded from loans
-            baixa = random.random() < 0.1  # 10% out of circulation
-            
-            Exemplar.objects.create(
-                cataleg=cataleg_item,
-                registre=f"{cataleg_item.signatura}-{i+1}",
-                exclos_prestec=exclos_prestec,
-                baixa=baixa,
-                centre=random.choice(centres)  # Assign a random centre
-            )
+        for _ in range(count):
+            exclos_prestec = random.random() < 0.2
+            baixa = random.random() < 0.1
 
+            with transaction.atomic():  # Ensure atomicity to avoid race conditions
+                anyo = now().year
+
+                # Buscar el último número del año actual
+                exemplars_del_any = (
+                    Exemplar.objects
+                    .filter(registre__startswith=f'EX-{anyo}-')
+                    .order_by('-registre')
+                    .select_for_update()  # Lock rows for the current year
+                )
+
+                max_num = 0
+                for exemplar in exemplars_del_any:
+                    match = re.match(rf'EX-{anyo}-(\d{{6}})', exemplar.registre)
+                    if match:
+                        numero = int(match.group(1))
+                        if numero > max_num:
+                            max_num = numero
+
+                nou_numero = max_num + 1
+                registre = f'EX-{anyo}-{nou_numero:06d}'
+
+                Exemplar.objects.create(
+                    cataleg=cataleg_item,
+                    registre=registre,
+                    exclos_prestec=exclos_prestec,
+                    baixa=baixa,
+                    centre=random.choice(centres)
+                )
     def _create_users(self, fake, count):
         with tqdm(total=count, desc="Creating users") as pbar:
             centres = Centre.objects.all()
