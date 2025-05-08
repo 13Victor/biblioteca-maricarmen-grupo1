@@ -133,16 +133,21 @@ class Exemplar(models.Model):
     def save(self, *args, **kwargs):
         if not self.registre:
             year = now().year
-            # Filtrar los ejemplares solo del año actual
-            exemplars_del_any = Exemplar.objects.filter(registre__startswith=f'EX-{year}-')
-            # Buscar el mayor NNNNNN de ese año
             max_num = 0
-            for exemplar in exemplars_del_any:
-                match = re.match(rf'EX-{year}-(\d{{6}})', exemplar.registre)
+
+            last_exemplar = (
+                Exemplar.objects
+                .filter(registre__regex=r'^EX-\d{4}-\d{6}$')
+                .order_by('-registre')
+                .only('registre')
+                .first()
+            )
+
+            if last_exemplar:
+                match = re.match(r'EX-\d{4}-(\d{6})', last_exemplar.registre)
                 if match:
-                    numero = int(match.group(1))
-                    if numero > max_num:
-                        max_num = numero
+                    max_num = int(match.group(1))
+
             nou_numero = max_num + 1
             self.registre = f'EX-{year}-{nou_numero:06d}'
 

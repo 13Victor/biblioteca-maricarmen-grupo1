@@ -83,11 +83,15 @@ class LogAdmin(admin.ModelAdmin):
     readonly_fields = ('data_accio',)
 
 class ExemplarAdmin(admin.ModelAdmin):
-    list_display = ('registre','cataleg', 'centre', 'exclos_prestec', 'baixa')
+    list_display = ('registre', 'cataleg', 'centre', 'exclos_prestec', 'baixa')
     list_filter = ('centre', 'exclos_prestec', 'baixa')
     search_fields = ('registre', 'cataleg__titol')
-    readonly_fields = ['registre']
-    fields = ('registre','cataleg', 'centre', 'exclos_prestec', 'baixa')
+    readonly_fields = ['registre', 'cdu']  # Añadimos 'cdu' como campo de solo lectura
+    fields = ('registre', 'cataleg', 'centre', 'exclos_prestec', 'baixa', 'cdu')  # Incluimos 'cdu' en los campos
+
+    def cdu(self, obj):
+        return obj.cataleg.CDU if obj.cataleg else "N/A"  # Obtenemos el CDU del catálogo relacionado
+    cdu.short_description = "CDU"  # Etiqueta para el campo en el admin
 
     def get_form(self, request, obj=None, **kwargs):
         form = super().get_form(request, obj, **kwargs)

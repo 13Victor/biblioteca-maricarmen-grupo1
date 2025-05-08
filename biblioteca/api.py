@@ -68,6 +68,7 @@ class ExemplarSearchOut(Schema):
     titol: str
     autor: Optional[str]
     editorial: Optional[str]
+    CDU: Optional[str]
     tipus: str
     exclos_prestec: bool
     baixa: bool
@@ -134,6 +135,7 @@ def search_exemplars(request, q: Optional[str] = Query(None), start: Optional[st
             "titol": exemplar.cataleg.titol,
             "autor": exemplar.cataleg.autor,
             "editorial": exemplar.cataleg.llibre.editorial if hasattr(exemplar.cataleg, "llibre") else None,
+            "CDU": exemplar.cataleg.CDU,
             "tipus": tipus,
             "exclos_prestec": exemplar.exclos_prestec,
             "baixa": exemplar.baixa,
