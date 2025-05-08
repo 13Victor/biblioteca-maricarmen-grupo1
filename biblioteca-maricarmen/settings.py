@@ -13,8 +13,8 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 from pathlib import Path
 import os, environ
 
+
 env = environ.Env(
-    # set casting, default value
     DEBUG=(bool, False)
 )
 
@@ -43,6 +43,13 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
+    'django.contrib.sites',
+    'allauth',
+    'allauth.account',
+    'allauth.socialaccount',
+    'allauth.socialaccount.providers.google',
+    'allauth.socialaccount.providers.microsoft',
 ]
 
 MIDDLEWARE = [
@@ -54,10 +61,93 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'allauth.account.middleware.AccountMiddleware', 
 ]
 
+AUTHENTICATION_BACKENDS = [
+    'django.contrib.auth.backends.ModelBackend',
+    'allauth.account.auth_backends.AuthenticationBackend',
+]
+
+SITE_ID = 1
+ACCOUNT_SIGNUP_FIELDS = ['email*', 'password1*', 'password2*']
+ACCOUNT_LOGIN_METHODS = {'email'}
+ACCOUNT_EMAIL_VERIFICATION = 'none'
+
+FRONTEND_URL = env('FRONTEND_URL', default='http://localhost:8000')
+API_URL = env('API_URL', default='http://localhost:8000/api')
+
+# Configuración de django-allauth
+SITE_ID = 1
+ACCOUNT_EMAIL_REQUIRED = True
+ACCOUNT_USERNAME_REQUIRED = False
+ACCOUNT_AUTHENTICATION_METHOD = 'email'
+ACCOUNT_EMAIL_VERIFICATION = 'none'
+ACCOUNT_ADAPTER = 'biblioteca.adapters.CustomAccountAdapter'
+SOCIALACCOUNT_ADAPTER = 'biblioteca.adapters.CustomSocialAccountAdapter'
+SOCIALACCOUNT_EMAIL_VERIFICATION = 'none'
+SOCIALACCOUNT_STORE_TOKENS = True
+SOCIALACCOUNT_AUTO_SIGNUP = True
+
+SOCIALACCOUNT_PROVIDERS = {
+    'google': {
+        'APP': {
+            'client_id': env('GOOGLE_CLIENT_ID'),
+            'secret': env('GOOGLE_CLIENT_SECRET'),
+            'key': ''
+        },
+        'SCOPE': [
+            'profile',
+            'email',
+        ],
+        'AUTH_PARAMS': {
+            'access_type': 'online',
+            'prompt': 'select_account'
+        }
+    },
+    'microsoft': {
+        'APP': {
+            'client_id': env('MICROSOFT_CLIENT_ID'),
+            'secret': env('MICROSOFT_CLIENT_SECRET'),
+            'key': '',
+            'tenant': 'consumers'  # Para cuentas personales Microsoft
+        },
+        'SCOPE': ['User.Read', 'email', 'profile', 'openid'],
+        'AUTH_PARAMS': {
+            'prompt': 'select_account'
+        }
+    }
+}
+
+# Configuración para que las peticiones AJAX funcionen correctamente
+CSRF_TRUSTED_ORIGINS = [FRONTEND_URL]
+CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_ORIGINS = [
-    "https://biblioteca1.ieti.site",
+    FRONTEND_URL,
+]
+
+# Rutas de redirección después del login/logout - se cambiarán por vistas API
+LOGIN_REDIRECT_URL = '/api/auth/login-success/'
+LOGOUT_REDIRECT_URL = '/api/auth/logout-success/'
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.SessionAuthentication',
+        'rest_framework.authentication.TokenAuthentication',
+    ]
+}
+
+# Rutas de redirección después del login/logout
+LOGIN_REDIRECT_URL = '/'
+LOGOUT_REDIRECT_URL = '/'
+
+# Para facilitar el desarrollo en entorno local
+CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = True
+
+CORS_ALLOWED_ORIGINS = [
+    FRONTEND_URL,
+    "http://localhost:8000",
 ]
 
 ROOT_URLCONF = 'biblioteca-maricarmen.urls'

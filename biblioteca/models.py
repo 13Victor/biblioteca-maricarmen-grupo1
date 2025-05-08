@@ -107,7 +107,7 @@ class Usuari(AbstractUser):
         return self.groups.filter(name='Bibliotecaris').exists()
 
     def save(self, *args, **kwargs):
-        if self.is_staff and not self.centre and not self.pk:  # solo para nuevos usuarios staff
+        if self.is_staff and not self.centre and not self.pk:
             raise ValueError("Staff users must have a centre assigned")
         if self.is_staff and not self.centre and self.pk:  # para usuarios existentes
             original = Usuari.objects.get(pk=self.pk)

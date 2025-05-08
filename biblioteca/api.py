@@ -6,6 +6,11 @@ from typing import List, Optional, Union, Literal
 import secrets
 from django.db.models import Q
 
+from ninja import Router
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+import base64
+
 api = NinjaAPI()
 
 
@@ -229,9 +234,57 @@ class AuthBearer(HttpBearer):
 
 # Endpoint per obtenir un token
 @api.get("/token", auth=BasicAuth())
-@api.get("/token/", auth=BasicAuth())
-def obtenir_token(request):
-    return {"token": request.auth}
+@api.get('/token/')
+def get_token(request):
+    """
+    Endpoint para obtener un token de autenticación.
+    Soporta autenticación básica (usuario/contraseña) y social (token).
+    """
+    # Verificar si viene de autenticación social (token en parámetro)
+    social_token = request.GET.get('social_token')
+    if social_token:
+        try:
+            from biblioteca.models import Usuari
+            usuario = Usuari.objects.get(auth_token=social_token)
+            # Si el usuario existe con ese token, autenticarlo
+            return JsonResponse({
+                'token': social_token,
+                'user': {
+                    'id': usuario.id,
+                    'username': usuario.username,
+                    'email': usuario.email,
+                    'is_staff': usuario.is_staff,
+                    'is_superuser': usuario.is_superuser
+                }
+            })
+        except Usuari.DoesNotExist:
+            return JsonResponse({'error': 'Token inválido'}, status=401)
+    
+    # Autenticación básica (usuario/contraseña)
+    auth_header = request.headers.get('Authorization', '')
+    if not auth_header.startswith('Basic '):
+        return JsonResponse({'error': 'Se requiere autenticación básica'}, status=401)
+    
+    try:
+        # Decodificar credenciales
+        auth_decoded = base64.b64decode(auth_header[6:]).decode('utf-8')
+        username, password = auth_decoded.split(':', 1)
+        
+        # Autenticar usuario
+        user = authenticate(username=username, password=password)
+        if user is None:
+            return JsonResponse({'error': 'Credenciales inválidas'}, status=401)
+        
+        # Si el usuario no tiene token, generarlo
+        if not user.auth_token:
+            from django.utils.crypto import get_random_string
+            user.auth_token = get_random_string(32)
+            user.save()
+        
+        return JsonResponse({'token': user.auth_token})
+    
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
 
 
 # Endpoint per obtenir dades d'un usuari a partir del seu token
