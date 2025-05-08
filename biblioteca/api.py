@@ -936,22 +936,50 @@ def generate_labels(request, payload: GenerateLabelsIn):
                 
                 # Generar código de barras como imagen base64
                 barcode_buffer = BytesIO()
-                Code128(str(exemplar.registre), writer=ImageWriter()).write(barcode_buffer)
+                writer = ImageWriter()
+                Code128(str(exemplar.registre), writer=writer).write(barcode_buffer, text='')
                 barcode_buffer.seek(0)  # Rebobinar el buffer
                 barcode_base64 = base64.b64encode(barcode_buffer.getvalue()).decode('utf-8')
                 
+                # Para cada ejemplar, crear dos objetos de etiqueta: uno para el código de barras y otro para el CDU
                 exemplars_data.append({
                     'id': exemplar.id,
                     'registre': exemplar.registre,
-                    'CDU': exemplar.cataleg.CDU if exemplar.cataleg and hasattr(exemplar.cataleg, 'CDU') else None,
-                    'barcode_img': barcode_base64
+                    'barcode_img': barcode_base64,
+                    'type': 'barcode',  # Marcador para identificar el tipo de etiqueta
+                    'CDU': None  # No se usa en esta etiqueta
                 })
+                
+                exemplars_data.append({
+                    'id': exemplar.id,
+                    'registre': None,  # No se usa en esta etiqueta
+                    'barcode_img': None,  # No se usa en esta etiqueta
+                    'type': 'cdu',  # Marcador para identificar el tipo de etiqueta
+                    'CDU': exemplar.cataleg.CDU if exemplar.cataleg and hasattr(exemplar.cataleg, 'CDU') else None
+                })
+                
             except Exemplar.DoesNotExist:
                 continue
         
+        # Organizar ejemplares en filas y columnas (4 columnas x 17 filas = 68 etiquetas por página)
+        rows = []
+        total_cells = 4 * 17  # 68 celdas totales
+        
+        # Rellenar la lista con None para tener un total de celdas múltiplo de 4
+        while len(exemplars_data) < total_cells:
+            exemplars_data.append(None)
+            
+        # Crear las filas (17) con 4 columnas cada una
+        for i in range(0, min(total_cells, len(exemplars_data)), 4):
+            row = exemplars_data[i:i+4]
+            # Asegurarse de que cada fila tenga exactamente 4 elementos
+            while len(row) < 4:
+                row.append(None)
+            rows.append(row)
+        
         # Renderizar la plantilla HTML con los datos de los ejemplares
         html = render_to_string('etiquetas.html', {
-            'exemplars': exemplars_data,
+            'rows': rows,
             'centre_nom': centre_nom
         })
         
