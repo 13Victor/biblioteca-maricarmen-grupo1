@@ -2,6 +2,14 @@ from django.contrib.auth import authenticate
 from ninja import NinjaAPI, Schema, Query
 from ninja.security import HttpBasicAuth, HttpBearer
 from django.db.models.functions import Substr, Length
+from django.template.loader import render_to_string
+from django.http import HttpResponse
+from xhtml2pdf import pisa
+from io import BytesIO
+import base64
+import barcode
+from barcode.writer import ImageWriter
+from barcode import Code128
 
 from .models import *
 from typing import List, Optional, Union, Literal
@@ -904,3 +912,61 @@ def get_exemplar_suggestions(request, q: str = Query(...)):
                     seen_results.add(result["resultado"])
 
     return results
+
+class GenerateLabelsIn(Schema):
+    exemplar_ids: List[int]
+
+@api.post("/exemplars/generate-labels")
+def generate_labels(request, payload: GenerateLabelsIn):
+    """
+    Genera etiquetas en formato PDF para los ejemplares seleccionados.
+    """
+    try:
+        # Obtener los ejemplares seleccionados
+        exemplars_data = []
+        centre_nom = "Biblioteca"
+        
+        # Si el usuario está autenticado y tiene centro asignado, usar ese nombre
+        if hasattr(request, 'auth') and request.auth and hasattr(request.auth, 'centre') and request.auth.centre:
+            centre_nom = request.auth.centre.nom
+        
+        for exemplar_id in payload.exemplar_ids:
+            try:
+                exemplar = Exemplar.objects.select_related('cataleg').get(id=exemplar_id)
+                
+                # Generar código de barras como imagen base64
+                barcode_buffer = BytesIO()
+                Code128(str(exemplar.registre), writer=ImageWriter()).write(barcode_buffer)
+                barcode_buffer.seek(0)  # Rebobinar el buffer
+                barcode_base64 = base64.b64encode(barcode_buffer.getvalue()).decode('utf-8')
+                
+                exemplars_data.append({
+                    'id': exemplar.id,
+                    'registre': exemplar.registre,
+                    'CDU': exemplar.cataleg.CDU if exemplar.cataleg and hasattr(exemplar.cataleg, 'CDU') else None,
+                    'barcode_img': barcode_base64
+                })
+            except Exemplar.DoesNotExist:
+                continue
+        
+        # Renderizar la plantilla HTML con los datos de los ejemplares
+        html = render_to_string('etiquetas.html', {
+            'exemplars': exemplars_data,
+            'centre_nom': centre_nom
+        })
+        
+        # Convertir HTML a PDF
+        result = BytesIO()
+        pdf = pisa.pisaDocument(BytesIO(html.encode("UTF-8")), result)
+        
+        if not pdf.err:
+            # Devolver el PDF como respuesta
+            response = HttpResponse(result.getvalue(), content_type='application/pdf')
+            response['Content-Disposition'] = 'attachment; filename="etiquetas.pdf"'
+            return response
+        else:
+            return {"error": "Error al generar el PDF"}, 500
+            
+    except Exception as e:
+        print(f"Error generando etiquetas: {e}")  # Añadir log para depuración
+        return {"error": str(e)}, 500

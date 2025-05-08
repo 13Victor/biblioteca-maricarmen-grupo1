@@ -61,7 +61,14 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:8000",
     "https://biblioteca1.ieti.site",
 ]
-
+CORS_ALLOW_METHODS = [
+    'GET',
+    'POST',
+    'PUT',
+    'PATCH',
+    'DELETE',
+    'OPTIONS',
+]
 ROOT_URLCONF = 'biblioteca-maricarmen.urls'
 
 TEMPLATES = [
