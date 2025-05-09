@@ -82,11 +82,23 @@ class ExemplarSearchOut(Schema):
     baixa: bool
 
 @api.get("/exemplars/search/", response=List[ExemplarSearchOut])
-def search_exemplars(request, q: Optional[str] = Query(None), start: Optional[str] = Query(None), end: Optional[str] = Query(None), exact: Optional[str] = Query(None)):
+def search_exemplars(request, q: Optional[str] = Query(None), 
+                    start: Optional[str] = Query(None), 
+                    end: Optional[str] = Query(None), 
+                    rangeSearch: Optional[bool] = Query(None),
+                    exact: Optional[bool] = Query(None),
+                    id: Optional[int] = Query(None),
+                    tipo: Optional[str] = Query(None),
+                    code: Optional[str] = Query(None),
+                    centre_id: Optional[int] = Query(None)):
     """
-    Endpoint para buscar ejemplares por texto, rango de códigos o código específico.
+    Endpoint para buscar ejemplares por múltiples criterios combinados.
     """
     exemplars = Exemplar.objects.select_related("cataleg").all()
+
+    # Filtrar por centro si se especifica
+    if centre_id is not None:
+        exemplars = exemplars.filter(centre_id=centre_id)
 
     # Formatear start y end para que tengan 6 caracteres con ceros a la izquierda
     if start:
@@ -94,31 +106,27 @@ def search_exemplars(request, q: Optional[str] = Query(None), start: Optional[st
     if end:
         end = end.zfill(6)
 
+    # Aplicar filtro por texto (autor, título, editorial)
     if q:
-        # Buscar por título, autor o editorial
         exemplars = exemplars.filter(
             Q(cataleg__titol__icontains=q) |
             Q(cataleg__autor__icontains=q) |
             Q(cataleg__llibre__editorial__icontains=q)
         )
-    elif start and end:
-        # Buscar por rango de los últimos 6 dígitos de registre (inclusive)
+
+    # Aplicar filtro por rango
+    if rangeSearch and start and end:
+        # Extraer los últimos 6 dígitos del código para la búsqueda por rango
         exemplars = exemplars.annotate(
             registre_suffix=Substr('registre', Length('registre') - 5, 6)  # Extraer los últimos 6 dígitos
         ).filter(
             registre_suffix__gte=start,
             registre_suffix__lte=end
         )
-    elif start:
-        # Buscar por código específico (últimos 6 dígitos)
-        exemplars = exemplars.annotate(
-            registre_suffix=Substr('registre', Length('registre') - 5, 6)  # Extraer los últimos 6 dígitos
-        ).filter(
-            registre_suffix=start
-        )
-    elif exact:
-        # Buscar por código específico exacto
-        exemplars = exemplars.filter(registre=exact)
+    
+    # Aplicar filtro por código exacto
+    if code:
+        exemplars = exemplars.filter(registre=code)
 
     # Formatear los resultados
     results = []
