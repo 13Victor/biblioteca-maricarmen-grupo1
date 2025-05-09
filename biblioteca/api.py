@@ -924,12 +924,7 @@ def generate_labels(request, payload: GenerateLabelsIn):
     try:
         # Obtener los ejemplares seleccionados
         exemplars_data = []
-        centre_nom = "Biblioteca"
-        
-        # Si el usuario está autenticado y tiene centro asignado, usar ese nombre
-        if hasattr(request, 'auth') and request.auth and hasattr(request.auth, 'centre') and request.auth.centre:
-            centre_nom = request.auth.centre.nom
-        
+
         for exemplar_id in payload.exemplar_ids:
             try:
                 exemplar = Exemplar.objects.select_related('cataleg').get(id=exemplar_id)
@@ -944,16 +939,18 @@ def generate_labels(request, payload: GenerateLabelsIn):
                 # Para cada ejemplar, crear dos objetos de etiqueta: uno para el código de barras y otro para el CDU
                 exemplars_data.append({
                     'id': exemplar.id,
+                    'centre_nom' : exemplar.centre,
                     'registre': exemplar.registre,
                     'barcode_img': barcode_base64,
                     'type': 'barcode',  # Marcador para identificar el tipo de etiqueta
-                    'CDU': None  # No se usa en esta etiqueta
+                    'CDU': None  
                 })
                 
                 exemplars_data.append({
                     'id': exemplar.id,
-                    'registre': None,  # No se usa en esta etiqueta
-                    'barcode_img': None,  # No se usa en esta etiqueta
+                    'centre_nom' : None,
+                    'registre': None,
+                    'barcode_img': None,  
                     'type': 'cdu',  # Marcador para identificar el tipo de etiqueta
                     'CDU': exemplar.cataleg.CDU if exemplar.cataleg and hasattr(exemplar.cataleg, 'CDU') else None
                 })
@@ -970,7 +967,7 @@ def generate_labels(request, payload: GenerateLabelsIn):
             exemplars_data.append(None)
             
         # Crear las filas (17) con 4 columnas cada una
-        for i in range(0, min(total_cells, len(exemplars_data)), 4):
+        for i in range(0, len(exemplars_data), 4):
             row = exemplars_data[i:i+4]
             # Asegurarse de que cada fila tenga exactamente 4 elementos
             while len(row) < 4:
@@ -980,7 +977,6 @@ def generate_labels(request, payload: GenerateLabelsIn):
         # Renderizar la plantilla HTML con los datos de los ejemplares
         html = render_to_string('etiquetas.html', {
             'rows': rows,
-            'centre_nom': centre_nom
         })
         
         # Convertir HTML a PDF
