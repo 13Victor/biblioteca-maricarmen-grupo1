@@ -234,7 +234,7 @@ class AuthBearer(HttpBearer):
 
 # Endpoint per obtenir un token
 @api.get("/token", auth=BasicAuth())
-@api.get('/token/')
+@api.get("/token/")
 def get_token(request):
     """
     Endpoint para obtener un token de autenticación.
@@ -244,7 +244,6 @@ def get_token(request):
     social_token = request.GET.get('social_token')
     if social_token:
         try:
-            from biblioteca.models import Usuari
             usuario = Usuari.objects.get(auth_token=social_token)
             # Si el usuario existe con ese token, autenticarlo
             return JsonResponse({
@@ -254,7 +253,9 @@ def get_token(request):
                     'username': usuario.username,
                     'email': usuario.email,
                     'is_staff': usuario.is_staff,
-                    'is_superuser': usuario.is_superuser
+                    'is_superuser': usuario.is_superuser,
+                    'first_name': usuario.first_name or "",
+                    'last_name': usuario.last_name or "",
                 }
             })
         except Usuari.DoesNotExist:
@@ -276,12 +277,24 @@ def get_token(request):
             return JsonResponse({'error': 'Credenciales inválidas'}, status=401)
         
         # Si el usuario no tiene token, generarlo
-        if not user.auth_token:
+        if not hasattr(user, 'auth_token') or not user.auth_token:
             from django.utils.crypto import get_random_string
             user.auth_token = get_random_string(32)
             user.save()
         
-        return JsonResponse({'token': user.auth_token})
+        # Return token AND basic user info
+        return JsonResponse({
+            'token': user.auth_token,
+            'user': {
+                'id': user.id,
+                'username': user.username,
+                'email': user.email,
+                'is_staff': user.is_staff,
+                'is_superuser': user.is_superuser,
+                'first_name': user.first_name or "",
+                'last_name': user.last_name or ""
+            }
+        })
     
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=400)
@@ -293,24 +306,28 @@ def get_token(request):
 def obtenir_usuari(request):    
     user = request.auth
     if user:
-        #pasar 'user_permissions' en una lista de diccionarios
+        # Include all user permissions
         user_permissions = [{"id": perm.id, "name": perm.name} for perm in user.user_permissions.all()]
         
-        imatge_url = user.imatge.url if user.imatge else None 
+        # Handle image URL safely
+        imatge_url = user.imatge.url if hasattr(user, 'imatge') and user.imatge else None
         
-        #respuesta json
+        # Return a complete user object with all needed fields
         return {
             "id": user.id,
             "username": user.username,
-            "first_name": user.first_name,
-            "last_name": user.last_name,
+            "first_name": user.first_name or "",
+            "last_name": user.last_name or "",
             "email": user.email,
             "is_staff": user.is_staff,
             "is_superuser": user.is_superuser,
             "user_permissions": user_permissions,
-            "centre": user.centre.nom if user.centre else None,
-            "cicle": user.cicle.nom if user.cicle else None,
+            "centre": user.centre.nom if hasattr(user, 'centre') and user.centre else None,
+            "cicle": user.cicle.nom if hasattr(user, 'cicle') and user.cicle else None,
+            "telefon": user.telefon if hasattr(user, 'telefon') else None,
+            "grup": user.grup if hasattr(user, 'grup') else None,
             "imatge": imatge_url,
+            # Add any other fields your frontend needs
         }
     
     return {"error": "Usuari no trobat"}, 404

@@ -28,7 +28,6 @@ SECRET_KEY = env("SECRET_KEY")
 DEBUG = env("DEBUG")
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["*",])
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-#CSRF_TRUSTED_ORIGINS = ["https://biblio.ieti.site"]
 
 
 # Application definition
@@ -148,6 +147,14 @@ CORS_ALLOWED_ORIGINS = [
     FRONTEND_URL,
     "http://localhost:8000",
 ]
+
+CSRF_COOKIE_SAMESITE = 'Lax'  # or 'None' with secure cookies in production
+SESSION_COOKIE_SAMESITE = 'Lax'  # or 'None' with secure cookies in production
+
+# For development only
+CSRF_COOKIE_SECURE = False
+SESSION_COOKIE_SECURE = False
+
 
 ROOT_URLCONF = 'biblioteca-maricarmen.urls'
 

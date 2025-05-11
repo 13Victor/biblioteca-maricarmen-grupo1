@@ -101,7 +101,7 @@ class Usuari(AbstractUser):
     centre = models.ForeignKey(Centre,on_delete=models.SET_NULL,null=True,blank=True)  # Centro puede ser null para usuarios normales
     cicle = models.ForeignKey(Cicle,on_delete=models.SET_NULL,null=True,blank=True)
     imatge = models.ImageField(upload_to='usuaris/',null=True,blank=True)
-    auth_token = models.CharField(max_length=32,blank=True,null=True)
+    auth_token = models.CharField(max_length=100, blank=True, null=True)
 
     def is_bibliotecari(self):
         return self.groups.filter(name='Bibliotecaris').exists()
