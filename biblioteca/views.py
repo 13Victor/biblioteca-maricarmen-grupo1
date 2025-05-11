@@ -307,19 +307,25 @@ def social_auth_callback(request, provider=None):
         try:
             usuario = Usuari.objects.get(email=email)
             # Actualizar los datos del usuario existente
+            has_changed = False
+            
             if provider == 'google':
                 if 'given_name' in userinfo and not usuario.first_name:
                     usuario.first_name = userinfo.get('given_name', '')
+                    has_changed = True
                 if 'family_name' in userinfo and not usuario.last_name:
                     usuario.last_name = userinfo.get('family_name', '')
+                    has_changed = True
             elif provider == 'microsoft':
                 if 'givenName' in userinfo and not usuario.first_name:
                     usuario.first_name = userinfo.get('givenName', '')
+                    has_changed = True
                 if 'surname' in userinfo and not usuario.last_name:
                     usuario.last_name = userinfo.get('surname', '')
+                    has_changed = True
             
             # Guardar cambios si se realizaron
-            if usuario.has_changed:
+            if has_changed:
                 usuario.save()
                 
         except Usuari.DoesNotExist:

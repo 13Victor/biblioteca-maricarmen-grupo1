@@ -79,9 +79,8 @@ API_URL = env('API_URL', default='http://localhost:8000/api')
 
 # Configuración de django-allauth
 SITE_ID = 1
-ACCOUNT_EMAIL_REQUIRED = True
-ACCOUNT_USERNAME_REQUIRED = False
-ACCOUNT_AUTHENTICATION_METHOD = 'email'
+ACCOUNT_SIGNUP_FIELDS = ['email*', 'password1*', 'password2*']
+ACCOUNT_LOGIN_METHODS = {'email'}
 ACCOUNT_EMAIL_VERIFICATION = 'none'
 ACCOUNT_ADAPTER = 'biblioteca.adapters.CustomAccountAdapter'
 SOCIALACCOUNT_ADAPTER = 'biblioteca.adapters.CustomSocialAccountAdapter'
@@ -110,7 +109,7 @@ SOCIALACCOUNT_PROVIDERS = {
             'client_id': env('MICROSOFT_CLIENT_ID'),
             'secret': env('MICROSOFT_CLIENT_SECRET'),
             'key': '',
-            'tenant': 'consumers'  # Para cuentas personales Microsoft
+            'tenant': 'common' 
         },
         'SCOPE': ['User.Read', 'email', 'profile', 'openid'],
         'AUTH_PARAMS': {
@@ -175,7 +174,10 @@ WSGI_APPLICATION = 'biblioteca-maricarmen.wsgi.application'
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
 DATABASES = {
-     'default': env.db(),
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
+    }
 }
 
 # DATABASES = {
