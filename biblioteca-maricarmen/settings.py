@@ -126,8 +126,8 @@ CORS_ALLOWED_ORIGINS = [
 ]
 
 # Rutas de redirección después del login/logout - se cambiarán por vistas API
-LOGIN_REDIRECT_URL = '/api/auth/login-success/'
-LOGOUT_REDIRECT_URL = '/api/auth/logout-success/'
+LOGIN_REDIRECT_URL = '/'
+LOGOUT_REDIRECT_URL = '/cataleg' 
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [

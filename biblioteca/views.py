@@ -423,7 +423,7 @@ def logout_success(request):
     """
     Página de éxito después del logout - redirige al frontend
     """
-    return HttpResponseRedirect(f"{settings.FRONTEND_URL}/login?logged_out=true")
+    return HttpResponseRedirect(f"{settings.FRONTEND_URL}/cataleg")
 
 # Index View
 def index(response):
