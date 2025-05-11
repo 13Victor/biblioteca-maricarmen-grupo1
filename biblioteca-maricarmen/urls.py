@@ -11,10 +11,12 @@ urlpatterns = [
     path('', views.index),
     path('cataleg/', views.index),
     path('csv-importacio/', views.index),
+    path('etiquetes/', views.index),
     path('historial-prestecs/', views.index),
     path('admin/', admin.site.urls),
     path("api/", api.urls),
     path("import_users/", views.import_users),
+    path('test-403/', views.test_403),
 ]
 
 # Manejadores de errores

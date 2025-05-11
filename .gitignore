@@ -9,6 +9,7 @@ db.sqlite3
 __pycache__
 usuaris/
 react.diff
+.DS_Store
 
 
 # react files no han de pujar (està com a submodule)

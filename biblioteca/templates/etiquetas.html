@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Etiquetas Biblioteca</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 0.6cm 0.8cm 0.3cm 0.8cm;
+        }
+
+        /* Importación de fuente OCR-A para los códigos CDU */
+        @font-face {
+            font-family: 'OCR-A';
+            src: url('https://cdn.jsdelivr.net/npm/ocr-a-font@1.0.1/ocr-a-regular.woff') format('woff');
+            font-weight: normal;
+            font-style: normal;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+
+        td {
+            width: 25%;
+            height: 1.68cm;
+            padding: 0;
+            vertical-align: middle;
+            text-align: center;
+        }
+
+        .label {
+            padding: 0.2cm;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        .label img {
+            max-width: 100%;
+            max-height: 100%;
+            display: block;
+            margin: 0.1cm 0;
+        }
+
+        .label p {
+            margin: 0;
+            font-size: 8pt;
+            width: 100%;
+            text-align: center;
+        }
+
+        .label-cdu {
+            justify-content: center;
+            align-items: center;
+            display: flex;
+            height: 100%;
+        }
+
+        .cdu-text {
+            font-size: 14pt;
+            font-weight: bold;
+            letter-spacing: 0.5px;
+            text-align: center;
+            width: 100%;
+        }
+
+        .cdu-prefix {
+            font-family: Arial, sans-serif;
+            font-size: 9pt;
+            font-weight: normal;
+            display: block;
+        }
+    </style>
+</head>
+
+<body>
+    <table>
+        {% for row in rows %}
+        <tr>
+            {% for cell in row %}
+            <td>
+                {% if cell %}
+                {% if cell.type == 'barcode' %}
+                <!-- Etiqueta con código de barras y registro -->
+                <div class="label">
+                    <p>{{ cell.centre_nom }}</p>
+                    <img src="data:image/png;base64,{{ cell.barcode_img }}" alt="Código de barras">
+                    <p>{{ cell.registre }}</p>
+
+                </div>
+                {% elif cell.type == 'cdu' %}
+                <!-- Etiqueta con CDU -->
+                <div class="label label-cdu">
+                    <p class="cdu-text">
+                        <span class="cdu-prefix">CDU:
+                            {{ cell.CDU|default:"No especificat" }}
+                        </span>
+                    </p>
+                </div>
+                {% endif %}
+                {% endif %}
+            </td>
+            {% endfor %}
+        </tr>
+        {% endfor %}
+    </table>
+</body>
+
+</html>

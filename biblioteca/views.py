@@ -11,7 +11,7 @@ import json
 from .models import Usuari, Centre, Grup
 import random
 import string
-# More imports ...
+
 
 # Index View
 def index(response):
@@ -120,3 +120,9 @@ def error_404(request, exception):
 
 def error_403(request, exception=None):
     return render(request, 'errors/403.html', status=403)
+
+# 403
+from django.core.exceptions import PermissionDenied
+
+def test_403(request):
+    raise PermissionDenied
