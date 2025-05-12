@@ -1,10 +1,21 @@
 from django.contrib.auth import authenticate
-from ninja import NinjaAPI, Schema
+from ninja import NinjaAPI, Schema, Query
 from ninja.security import HttpBasicAuth, HttpBearer
+from django.db.models.functions import Substr, Length
+from django.template.loader import render_to_string
+from django.http import HttpResponse
+from xhtml2pdf import pisa
+from io import BytesIO
+import base64
+import barcode
+from barcode.writer import ImageWriter
+from barcode import Code128
+
 from .models import *
 from typing import List, Optional, Union, Literal
 import secrets
 from django.db.models import Q
+import re  # Importar módulo para manejar signos de puntuación
 
 api = NinjaAPI()
 
@@ -57,6 +68,97 @@ class SearchResultOut(Schema):
     llengua: Optional[dict] = None
     tags: Optional[List[dict]] = None
     exemplar_counts: ExemplarStateCount = None
+
+# Endpoint que devuelve ejemplares que coincidan con búsqueda
+class ExemplarSearchOut(Schema):
+    id: int
+    registre: str
+    titol: str
+    autor: Optional[str]
+    editorial: Optional[str]
+    CDU: Optional[str]
+    tipus: str
+    exclos_prestec: bool
+    baixa: bool
+
+@api.get("/exemplars/search/", response=List[ExemplarSearchOut])
+def search_exemplars(request, q: Optional[str] = Query(None), 
+                    start: Optional[str] = Query(None), 
+                    end: Optional[str] = Query(None), 
+                    rangeSearch: Optional[bool] = Query(None),
+                    exact: Optional[bool] = Query(None),
+                    id: Optional[int] = Query(None),
+                    tipo: Optional[str] = Query(None),
+                    code: Optional[str] = Query(None),
+                    centre_id: Optional[int] = Query(None)):
+    """
+    Endpoint para buscar ejemplares por múltiples criterios combinados.
+    """
+    exemplars = Exemplar.objects.select_related("cataleg").all()
+
+    # Filtrar por centro si se especifica
+    if centre_id is not None:
+        exemplars = exemplars.filter(centre_id=centre_id)
+
+    # Formatear start y end para que tengan 6 caracteres con ceros a la izquierda
+    if start:
+        start = start.zfill(6)
+    if end:
+        end = end.zfill(6)
+
+    # Aplicar filtro por texto (autor, título, editorial)
+    if q:
+        exemplars = exemplars.filter(
+            Q(cataleg__titol__icontains=q) |
+            Q(cataleg__autor__icontains=q) |
+            Q(cataleg__llibre__editorial__icontains=q)
+        )
+
+    # Aplicar filtro por rango
+    if rangeSearch and start and end:
+        # Extraer los últimos 6 dígitos del código para la búsqueda por rango
+        exemplars = exemplars.annotate(
+            registre_suffix=Substr('registre', Length('registre') - 5, 6)  # Extraer los últimos 6 dígitos
+        ).filter(
+            registre_suffix__gte=start,
+            registre_suffix__lte=end
+        )
+    
+    # Aplicar filtro por código exacto
+    if code:
+        exemplars = exemplars.filter(registre=code)
+
+    # Formatear los resultados
+    results = []
+    for exemplar in exemplars:
+        tipus = "indefinit"
+        if hasattr(exemplar.cataleg, "llibre"):
+            tipus = "llibre"
+        elif hasattr(exemplar.cataleg, "revista"):
+            tipus = "revista"
+        elif hasattr(exemplar.cataleg, "cd"):
+            tipus = "cd"
+        elif hasattr(exemplar.cataleg, "dvd"):
+            tipus = "dvd"
+        elif hasattr(exemplar.cataleg, "br"):
+            tipus = "br"
+        elif hasattr(exemplar.cataleg, "dispositiu"):
+            tipus = "dispositiu"
+
+        results.append({
+            "id": exemplar.id,
+            "registre": exemplar.registre,
+            "titol": exemplar.cataleg.titol,
+            "autor": exemplar.cataleg.autor,
+            "editorial": exemplar.cataleg.llibre.editorial if hasattr(exemplar.cataleg, "llibre") else None,
+            "CDU": exemplar.cataleg.CDU,
+            "tipus": tipus,
+            "exclos_prestec": exemplar.exclos_prestec,
+            "baixa": exemplar.baixa,
+        })
+
+    return results
+
 
 # Endpoint para obtener sugerencias de búsqueda
 @api.get("/cataleg/search/suggestions/", response=List[SearchSuggestionOut])
@@ -758,3 +860,145 @@ def buscar_editoriales(request, q: str):
             print(f"Error al buscar en Google Books: {e}")
     
     return {"resultados": editoriales[:10]}  # Devolvemos máximo 10 resultados
+
+class ExemplarSuggestionOut(Schema):
+    id: int
+    tipo: str
+    resultado: str
+
+@api.get("/exemplars/search/suggestions/", response=List[ExemplarSuggestionOut])
+def get_exemplar_suggestions(request, q: str = Query(...)):
+    """
+    Endpoint para obtener sugerencias de búsqueda de ejemplares.
+    """
+    if not q:
+        return []
+
+    # Eliminar signos de puntuación de la consulta
+    normalized_query = re.sub(r'[^\w\s]', '', q).lower()
+
+    exemplars = Exemplar.objects.filter(
+        Q(cataleg__titol__icontains=normalized_query) |
+        Q(cataleg__autor__icontains=normalized_query) |
+        Q(cataleg__llibre__editorial__icontains=normalized_query)
+    ).select_related("cataleg")[:50]  # Limitar a 50 resultados para optimización
+
+    results = []
+    seen_results = set()  # Usar un conjunto para garantizar unicidad
+
+    for exemplar in exemplars:
+        if normalized_query in re.sub(r'[^\w\s]', '', exemplar.cataleg.titol).lower():
+            result = {
+                "id": exemplar.id,
+                "tipo": "Título",
+                "resultado": exemplar.cataleg.titol,
+            }
+            if result["resultado"] not in seen_results:
+                results.append(result)
+                seen_results.add(result["resultado"])
+
+        if exemplar.cataleg.autor and normalized_query in re.sub(r'[^\w\s]', '', exemplar.cataleg.autor).lower():
+            result = {
+                "id": exemplar.id,
+                "tipo": "Autor",
+                "resultado": exemplar.cataleg.autor,
+            }
+            if result["resultado"] not in seen_results:
+                results.append(result)
+                seen_results.add(result["resultado"])
+
+        if hasattr(exemplar.cataleg, "llibre") and exemplar.cataleg.llibre.editorial:
+            editorial_normalized = re.sub(r'[^\w\s]', '', exemplar.cataleg.llibre.editorial).lower()
+            if normalized_query in editorial_normalized:
+                result = {
+                    "id": exemplar.id,
+                    "tipo": "Editorial",
+                    "resultado": exemplar.cataleg.llibre.editorial,
+                }
+                if result["resultado"] not in seen_results:
+                    results.append(result)
+                    seen_results.add(result["resultado"])
+
+    return results
+
+class GenerateLabelsIn(Schema):
+    exemplar_ids: List[int]
+
+@api.post("/exemplars/generate-labels")
+def generate_labels(request, payload: GenerateLabelsIn):
+    """
+    Genera etiquetas en formato PDF para los ejemplares seleccionados.
+    """
+    try:
+        # Obtener los ejemplares seleccionados
+        exemplars_data = []
+
+        for exemplar_id in payload.exemplar_ids:
+            try:
+                exemplar = Exemplar.objects.select_related('cataleg').get(id=exemplar_id)
+                
+                # Generar código de barras como imagen base64
+                barcode_buffer = BytesIO()
+                writer = ImageWriter()
+                Code128(str(exemplar.registre), writer=writer).write(barcode_buffer, text='')
+                barcode_buffer.seek(0)  # Rebobinar el buffer
+                barcode_base64 = base64.b64encode(barcode_buffer.getvalue()).decode('utf-8')
+                
+                # Para cada ejemplar, crear dos objetos de etiqueta: uno para el código de barras y otro para el CDU
+                exemplars_data.append({
+                    'id': exemplar.id,
+                    'centre_nom' : exemplar.centre,
+                    'registre': exemplar.registre,
+                    'barcode_img': barcode_base64,
+                    'type': 'barcode',  # Marcador para identificar el tipo de etiqueta
+                    'CDU': None  
+                })
+                
+                exemplars_data.append({
+                    'id': exemplar.id,
+                    'centre_nom' : None,
+                    'registre': None,
+                    'barcode_img': None,  
+                    'type': 'cdu',  # Marcador para identificar el tipo de etiqueta
+                    'CDU': exemplar.cataleg.CDU if exemplar.cataleg and hasattr(exemplar.cataleg, 'CDU') else None
+                })
+                
+            except Exemplar.DoesNotExist:
+                continue
+        
+        # Organizar ejemplares en filas y columnas (4 columnas x 17 filas = 68 etiquetas por página)
+        rows = []
+        total_cells = 4 * 17  # 68 celdas totales
+        
+        # Rellenar la lista con None para tener un total de celdas múltiplo de 4
+        while len(exemplars_data) < total_cells:
+            exemplars_data.append(None)
+            
+        # Crear las filas (17) con 4 columnas cada una
+        for i in range(0, len(exemplars_data), 4):
+            row = exemplars_data[i:i+4]
+            # Asegurarse de que cada fila tenga exactamente 4 elementos
+            while len(row) < 4:
+                row.append(None)
+            rows.append(row)
+        
+        # Renderizar la plantilla HTML con los datos de los ejemplares
+        html = render_to_string('etiquetas.html', {
+            'rows': rows,
+        })
+        
+        # Convertir HTML a PDF
+        result = BytesIO()
+        pdf = pisa.pisaDocument(BytesIO(html.encode("UTF-8")), result)
+        
+        if not pdf.err:
+            # Devolver el PDF como respuesta
+            response = HttpResponse(result.getvalue(), content_type='application/pdf')
+            response['Content-Disposition'] = 'attachment; filename="etiquetas.pdf"'
+            return response
+        else:
+            return {"error": "Error al generar el PDF"}, 500
+            
+    except Exception as e:
+        print(f"Error generando etiquetas: {e}")  # Añadir log para depuración
+        return {"error": str(e)}, 500

@@ -11,7 +11,7 @@ class CategoriaAdmin(admin.ModelAdmin):
 
 
 class UsuariAdmin(UserAdmin):
-    # Obtener una copia de los fieldsets originales
+    # Obtener una copia de los fieldsets originals
     fieldsets = list(UserAdmin.fieldsets)
     # Modificar la tupla de 'Personal info' (que está en el índice 1)
     fieldsets[1] = (
@@ -28,7 +28,7 @@ class UsuariAdmin(UserAdmin):
 class ExemplarsInline(admin.TabularInline):
     model = Exemplar
     extra = 1
-    fields = ('registre', 'centre', 'exclos_prestec', 'baixa')
+    fields = ('centre', 'exclos_prestec', 'baixa')
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         if db_field.name == "centre":
@@ -86,7 +86,12 @@ class ExemplarAdmin(admin.ModelAdmin):
     list_display = ('registre', 'cataleg', 'centre', 'exclos_prestec', 'baixa')
     list_filter = ('centre', 'exclos_prestec', 'baixa')
     search_fields = ('registre', 'cataleg__titol')
-    fields = ('cataleg', 'registre', 'centre', 'exclos_prestec', 'baixa')
+    readonly_fields = ['registre', 'cdu']  # Añadimos 'cdu' como campo de solo lectura
+    fields = ('registre', 'cataleg', 'centre', 'exclos_prestec', 'baixa', 'cdu')  # Incluimos 'cdu' en los campos
+
+    def cdu(self, obj):
+        return obj.cataleg.CDU if obj.cataleg else "N/A"  # Obtenemos el CDU del catálogo relacionado
+    cdu.short_description = "CDU"  # Etiqueta para el campo en el admin
 
     def get_form(self, request, obj=None, **kwargs):
         form = super().get_form(request, obj, **kwargs)
@@ -129,7 +134,21 @@ admin.site.register(Exemplar, ExemplarAdmin)
 class PrestecAdmin(admin.ModelAdmin):
     readonly_fields = ('data_prestec',)
     fields = ('exemplar','usuari','data_prestec','data_retorn','anotacions')
-    list_display = ('exemplar','usuari','data_prestec','data_retorn')
+    list_display = ('exemplar','usuari','data_prestec','data_retorn', 'centre_exemplar')
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        if not request.user.is_superuser and request.user.centre:
+            return qs.filter(exemplar__centre=request.user.centre)
+        return qs
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if not request.user.is_superuser and request.user.centre:
+            if db_field.name == "exemplar":
+                kwargs["queryset"] = Exemplar.objects.filter(centre=request.user.centre)
+            elif db_field.name == "usuari":
+                kwargs["queryset"] = Usuari.objects.filter(centre=request.user.centre)
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
 admin.site.register(Centre)
 admin.site.register(Grup)
