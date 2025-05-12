@@ -173,6 +173,11 @@ class Prestec(models.Model):
     data_prestec = models.DateField(auto_now_add=True)
     data_retorn = models.DateField(null=True, blank=True)
     anotacions = models.TextField(blank=True,null=True)
+    
+    def centre_exemplar(self):
+        return self.exemplar.centre
+    centre_exemplar.short_description = "Centre"
+    
     def __str__(self):
         return str(self.exemplar)
 
